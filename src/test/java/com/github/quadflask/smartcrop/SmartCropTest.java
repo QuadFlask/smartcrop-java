@@ -52,7 +52,7 @@ public class SmartCropTest {
                 try {
                     long b = System.currentTimeMillis();
                     ImageIO.write(resultBufferedImage, "png", new File(debugPath, name.replace("jpg", "png")));
-                    System.out.println("sved... " + name + " / took " + (System.currentTimeMillis() - b) + "ms");
+                    System.out.println("saved... " + name + " / took " + (System.currentTimeMillis() - b) + "ms");
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

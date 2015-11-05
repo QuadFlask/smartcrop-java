@@ -27,18 +27,18 @@ done: goodtimes.jpg / analyze took 31ms
 done: guitarist.jpg / analyze took 31ms
 done: img.jpg / analyze took 30ms
 done: kitty.jpg / analyze took 30ms
-sved... 29386679.jpg / took 1738ms
-sved... 32872321.jpg / took 1475ms
-sved... 65131509.jpg / took 1201ms
-sved... 65158073.jpg / took 2170ms
-sved... 65309527.jpg / took 2397ms
-sved... 65334383.jpg / took 1063ms
-sved... 65356729.jpg / took 1396ms
-sved... 65438769.jpg / took 1359ms
-sved... goodtimes.jpg / took 1264ms
-sved... guitarist.jpg / took 1190ms
-sved... img.jpg / took 702ms
-sved... kitty.jpg / took 473ms
+saved... 29386679.jpg / took 1738ms
+saved... 32872321.jpg / took 1475ms
+saved... 65131509.jpg / took 1201ms
+saved... 65158073.jpg / took 2170ms
+saved... 65309527.jpg / took 2397ms
+saved... 65334383.jpg / took 1063ms
+saved... 65356729.jpg / took 1396ms
+saved... 65438769.jpg / took 1359ms
+saved... goodtimes.jpg / took 1264ms
+saved... guitarist.jpg / took 1190ms
+saved... img.jpg / took 702ms
+saved... kitty.jpg / took 473ms
 ```
 
 ## Example
