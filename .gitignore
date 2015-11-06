@@ -1,3 +1,5 @@
 .idea/
 target/
 smartcrop-java-mvn.iml
+out/
+*.iml
