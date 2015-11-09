@@ -38,183 +38,206 @@ public class Options {
 		return cropWidth;
 	}
 
-	public void setCropWidth(int cropWidth) {
+	public Options cropWidth(int cropWidth) {
 		this.cropWidth = cropWidth;
+		return this;
 	}
 
 	public int getCropHeight() {
 		return cropHeight;
 	}
 
-	public void setCropHeight(int cropHeight) {
+	public Options cropHeight(int cropHeight) {
 		this.cropHeight = cropHeight;
+		return this;
 	}
 
 	public float getDetailWeight() {
 		return detailWeight;
 	}
 
-	public void setDetailWeight(float detailWeight) {
+	public Options detailWeight(float detailWeight) {
 		this.detailWeight = detailWeight;
+		return this;
 	}
 
 	public float[] getSkinColor() {
 		return skinColor;
 	}
 
-	public void setSkinColor(float[] skinColor) {
+	public Options skinColor(float[] skinColor) {
 		this.skinColor = skinColor;
+		return this;
 	}
 
 	public float getSkinBias() {
 		return skinBias;
 	}
 
-	public void setSkinBias(float skinBias) {
+	public Options skinBias(float skinBias) {
 		this.skinBias = skinBias;
+		return this;
 	}
 
 	public float getSkinBrightnessMin() {
 		return skinBrightnessMin;
 	}
 
-	public void setSkinBrightnessMin(float skinBrightnessMin) {
+	public Options skinBrightnessMin(float skinBrightnessMin) {
 		this.skinBrightnessMin = skinBrightnessMin;
+		return this;
 	}
 
 	public float getSkinBrightnessMax() {
 		return skinBrightnessMax;
 	}
 
-	public void setSkinBrightnessMax(float skinBrightnessMax) {
+	public Options skinBrightnessMax(float skinBrightnessMax) {
 		this.skinBrightnessMax = skinBrightnessMax;
+		return this;
 	}
 
 	public float getSkinThreshold() {
 		return skinThreshold;
 	}
 
-	public void setSkinThreshold(float skinThreshold) {
+	public Options skinThreshold(float skinThreshold) {
 		this.skinThreshold = skinThreshold;
+		return this;
 	}
 
 	public float getSkinWeight() {
 		return skinWeight;
 	}
 
-	public void setSkinWeight(float skinWeight) {
+	public Options skinWeight(float skinWeight) {
 		this.skinWeight = skinWeight;
+		return this;
 	}
 
 	public float getSaturationBrightnessMin() {
 		return saturationBrightnessMin;
 	}
 
-	public void setSaturationBrightnessMin(float saturationBrightnessMin) {
+	public Options saturationBrightnessMin(float saturationBrightnessMin) {
 		this.saturationBrightnessMin = saturationBrightnessMin;
+		return this;
 	}
 
 	public float getSaturationBrightnessMax() {
 		return saturationBrightnessMax;
 	}
 
-	public void setSaturationBrightnessMax(float saturationBrightnessMax) {
+	public Options saturationBrightnessMax(float saturationBrightnessMax) {
 		this.saturationBrightnessMax = saturationBrightnessMax;
+		return this;
 	}
 
 	public float getSaturationThreshold() {
 		return saturationThreshold;
 	}
 
-	public void setSaturationThreshold(float saturationThreshold) {
+	public Options saturationThreshold(float saturationThreshold) {
 		this.saturationThreshold = saturationThreshold;
+		return this;
 	}
 
 	public float getSaturationBias() {
 		return saturationBias;
 	}
 
-	public void setSaturationBias(float saturationBias) {
+	public Options saturationBias(float saturationBias) {
 		this.saturationBias = saturationBias;
+		return this;
 	}
 
 	public float getSaturationWeight() {
 		return saturationWeight;
 	}
 
-	public void setSaturationWeight(float saturationWeight) {
+	public Options saturationWeight(float saturationWeight) {
 		this.saturationWeight = saturationWeight;
+		return this;
 	}
 
 	public int getScoreDownSample() {
 		return scoreDownSample;
 	}
 
-	public void setScoreDownSample(int scoreDownSample) {
+	public Options scoreDownSample(int scoreDownSample) {
 		this.scoreDownSample = scoreDownSample;
+		return this;
 	}
 
 	public float getScaleStep() {
 		return scaleStep;
 	}
 
-	public void setScaleStep(float scaleStep) {
+	public Options scaleStep(float scaleStep) {
 		this.scaleStep = scaleStep;
+		return this;
 	}
 
 	public float getMinScale() {
 		return minScale;
 	}
 
-	public void setMinScale(float minScale) {
+	public Options minScale(float minScale) {
 		this.minScale = minScale;
+		return this;
 	}
 
 	public float getMaxScale() {
 		return maxScale;
 	}
 
-	public void setMaxScale(float maxScale) {
+	public Options maxScale(float maxScale) {
 		this.maxScale = maxScale;
+		return this;
 	}
 
 	public float getEdgeRadius() {
 		return edgeRadius;
 	}
 
-	public void setEdgeRadius(float edgeRadius) {
+	public Options edgeRadius(float edgeRadius) {
 		this.edgeRadius = edgeRadius;
+		return this;
 	}
 
 	public float getEdgeWeight() {
 		return edgeWeight;
 	}
 
-	public void setEdgeWeight(float edgeWeight) {
+	public Options edgeWeight(float edgeWeight) {
 		this.edgeWeight = edgeWeight;
+		return this;
 	}
 
 	public float getOutsideImportance() {
 		return outsideImportance;
 	}
 
-	public void setOutsideImportance(float outsideImportance) {
+	public Options outsideImportance(float outsideImportance) {
 		this.outsideImportance = outsideImportance;
+		return this;
 	}
 
 	public boolean isRuleOfThirds() {
 		return ruleOfThirds;
 	}
 
-	public void setRuleOfThirds(boolean ruleOfThirds) {
+	public Options ruleOfThirds(boolean ruleOfThirds) {
 		this.ruleOfThirds = ruleOfThirds;
+		return this;
 	}
 
 	public int getBufferedBitmapType() {
 		return bufferedBitmapType;
 	}
 
-	public void setBufferedBitmapType(int bufferedBitmapType) {
+	public Options bufferedBitmapType(int bufferedBitmapType) {
 		this.bufferedBitmapType = bufferedBitmapType;
+		return this;
 	}
 }

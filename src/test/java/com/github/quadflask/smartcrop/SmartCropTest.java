@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Created by flask on 2015. 10. 27..
@@ -54,14 +55,20 @@ public class SmartCropTest {
 
 	@Test
 	public void test() throws Exception {
+		Options options = new Options().bufferedBitmapType(BufferedImage.TYPE_INT_RGB);
+		final AtomicLong pixels = new AtomicLong();
+
+		long total = System.currentTimeMillis();
+
 		bufferedImages.forEach((name, img) -> {
 			long b = System.currentTimeMillis();
-			Options options = new Options();
-			options.setBufferedBitmapType(BufferedImage.TYPE_INT_RGB);
 			CropResult result = new SmartCrop(options).analyze(img);
 			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
+			pixels.addAndGet(img.getWidth() * img.getHeight());
 
 			resultBufferedImages.put(name, result.getBufferedImage());
 		});
+
+		System.out.println(((pixels.get() / ((System.currentTimeMillis() - total) / 1000)) / 1000 / 1000f) + " MPixels/s");
 	}
 }
