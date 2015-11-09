@@ -8,7 +8,13 @@ import org.junit.Test;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Created by flask on 2015. 10. 27..
@@ -18,37 +24,25 @@ public class SmartCropTest {
 	static String samplePath = "src/test/resources/sample";
 	static String debugPath = "src/test/resources/debug";
 
-	static String[] sampleImages = {
-			"29386679.jpg",
-			"32872321.jpg",
-			"65131509.jpg",
-			"65158073.jpg",
-			"65309527.jpg",
-			"65334383.jpg",
-			"65356729.jpg",
-			"65438769.jpg",
-			"goodtimes.jpg",
-			"guitarist.jpg",
-			"img.jpg",
-			"kitty.jpg",};
-
-	static BufferedImage[] bufferedImages = new BufferedImage[sampleImages.length];
-	static BufferedImage[] resultBufferedImages = new BufferedImage[sampleImages.length];
+	static Map<String, BufferedImage> bufferedImages = new ConcurrentHashMap<>();
+	static Map<String, BufferedImage> resultBufferedImages = new ConcurrentHashMap<>();
 
 	@BeforeClass
 	public static void setup() throws Exception {
-		for (int i = 0; i < sampleImages.length; i++) {
-			String name = sampleImages[i];
-			bufferedImages[i] = ImageIO.read(new File(samplePath, name));
-		}
+		Arrays.stream(new File(samplePath)
+				.listFiles(pathname -> pathname.getName().endsWith(".jpg")))
+				.forEach(file -> {
+					try {
+						bufferedImages.put(file.getName(), ImageIO.read(file));
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				});
 	}
 
 	@AfterClass
 	public static void teardown() {
-		for (int i = 0; i < sampleImages.length; i++) {
-			final String name = sampleImages[i];
-			final BufferedImage resultBufferedImage = resultBufferedImages[i];
-
+		resultBufferedImages.forEach((name, resultBufferedImage) -> {
 			new Thread(() -> {
 				try {
 					long b = System.currentTimeMillis();
@@ -59,23 +53,19 @@ public class SmartCropTest {
 					e.printStackTrace();
 				}
 			}).run();
-		}
+		});
 	}
 
 	@Test
 	public void test() throws Exception {
-		long b;
-		for (int i = 0; i < sampleImages.length; i++) {
-			String name = sampleImages[i];
-			BufferedImage img = bufferedImages[i];
-
-			b = System.currentTimeMillis();
+		bufferedImages.forEach((name, img) -> {
+			long b = System.currentTimeMillis();
 			Options options = new Options();
 			options.setBufferedBitmapType(BufferedImage.TYPE_INT_RGB);
 			CropResult result = new SmartCrop(options).analyze(img);
 			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
 
-			resultBufferedImages[i] = result.getBufferedImage();
-		}
+			resultBufferedImages.put(name, result.getBufferedImage());
+		});
 	}
 }
