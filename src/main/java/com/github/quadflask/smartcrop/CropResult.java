@@ -4,15 +4,19 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 
 public class CropResult {
-    public Crop topCrop;
-    public List<Crop> crops;
-    public BufferedImage bufferedImage;
+	public final Crop topCrop;
+	public final List<Crop> crops;
+	public final BufferedImage debugImage;
+	public final BufferedImage resultImage;
 
-    public BufferedImage getBufferedImage() {
-        return bufferedImage;
-    }
+	private CropResult(Crop topCrop, List<Crop> crops, BufferedImage debugImage, BufferedImage resultImage) {
+		this.topCrop = topCrop;
+		this.crops = crops;
+		this.debugImage = debugImage;
+		this.resultImage = resultImage;
+	}
 
-    public void setBufferedImage(BufferedImage bufferedImage) {
-        this.bufferedImage = bufferedImage;
-    }
+	static CropResult newInstance(Crop topCrop, List<Crop> crops, BufferedImage debugImage, BufferedImage resultImage) {
+		return new CropResult(topCrop, crops, debugImage, resultImage);
+	}
 }

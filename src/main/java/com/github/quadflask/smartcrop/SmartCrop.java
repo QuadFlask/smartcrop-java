@@ -20,6 +20,10 @@ public class SmartCrop {
 		this.options = options;
 	}
 
+	public static CropResult analyze(Options options, BufferedImage input) {
+		return new SmartCrop(options).analyze(input);
+	}
+
 	public CropResult analyze(BufferedImage input) {
 		Image inputI = new Image(input);
 		Image outputI = new Image(input.getWidth(), input.getHeight());
@@ -52,10 +56,7 @@ public class SmartCrop {
 			crop.height *= options.getScoreDownSample();
 		}
 
-		CropResult result = new CropResult();
-		result.setBufferedImage(output);
-		result.crops = crops;
-		result.topCrop = topCrop;
+		CropResult result = CropResult.newInstance(topCrop, crops, output, createCrop(input, topCrop));
 
 		Graphics graphics = output.getGraphics();
 		graphics.setColor(Color.cyan);
@@ -63,6 +64,14 @@ public class SmartCrop {
 			graphics.drawRect(topCrop.x, topCrop.y, topCrop.width, topCrop.height);
 
 		return result;
+	}
+
+	public BufferedImage createCrop(BufferedImage input, Crop crop) {
+		int tw = options.getCropWidth();
+		int th = options.getCropHeight();
+		BufferedImage image = new BufferedImage(tw, th, options.getBufferedBitmapType());
+		image.getGraphics().drawImage(input, 0, 0, tw, th, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
+		return image;
 	}
 
 	private BufferedImage createScaleDown(BufferedImage image, float ratio) {
@@ -76,13 +85,11 @@ public class SmartCrop {
 		int width = image.width;
 		int height = image.height;
 		int minDimension = Math.min(width, height);
-		int cropWidth = Math.max(options.getCropWidth(), minDimension);
-		int cropHeight = Math.max(options.getCropHeight(), minDimension);
 
 		for (float scale = options.getMaxScale(); scale >= options.getMinScale(); scale -= options.getScaleStep()) {
-			for (int y = 0; y + cropHeight * scale <= height; y += options.getScoreDownSample()) {
-				for (int x = 0; x + cropWidth * scale <= width; x += options.getScoreDownSample()) {
-					crops.add(new Crop(x, y, (int) (cropWidth * scale), (int) (cropHeight * scale)));
+			for (int y = 0; y + minDimension * scale <= height; y += options.getScoreDownSample()) {
+				for (int x = 0; x + minDimension * scale <= width; x += options.getScoreDownSample()) {
+					crops.add(new Crop(x, y, (int) (minDimension * scale), (int) (minDimension * scale)));
 				}
 			}
 		}

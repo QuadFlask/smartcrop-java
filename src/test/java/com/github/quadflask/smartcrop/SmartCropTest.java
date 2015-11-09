@@ -20,9 +20,10 @@ public class SmartCropTest {
 
 	static String samplePath = "src/test/resources/sample";
 	static String debugPath = "src/test/resources/debug";
+	static String resultPath = "src/test/resources/result";
 
 	static Map<String, BufferedImage> bufferedImages = new ConcurrentHashMap<>();
-	static Map<String, BufferedImage> resultBufferedImages = new ConcurrentHashMap<>();
+	static Map<String, CropResult> cropResults = new ConcurrentHashMap<>();
 
 	@BeforeClass
 	public static void setup() throws Exception {
@@ -39,12 +40,13 @@ public class SmartCropTest {
 
 	@AfterClass
 	public static void teardown() {
-		resultBufferedImages.forEach((name, resultBufferedImage) -> {
+		cropResults.forEach((name, cropResult) -> {
 			new Thread(() -> {
 				try {
 					long b = System.currentTimeMillis();
 					String newName = name; // name.replace("jpg", "png");
-					ImageIO.write(resultBufferedImage, "jpg", new File(debugPath, newName));
+					ImageIO.write(cropResult.debugImage, "jpg", new File(debugPath, newName));
+					ImageIO.write(cropResult.resultImage, "jpg", new File(resultPath, newName));
 					System.out.println("saved... " + newName + " / took " + (System.currentTimeMillis() - b) + "ms");
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -62,11 +64,12 @@ public class SmartCropTest {
 
 		bufferedImages.forEach((name, img) -> {
 			long b = System.currentTimeMillis();
-			CropResult result = new SmartCrop(options).analyze(img);
+
+			CropResult result = SmartCrop.analyze(options, img);
+
 			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
 			pixels.addAndGet(img.getWidth() * img.getHeight());
-
-			resultBufferedImages.put(name, result.getBufferedImage());
+			cropResults.put(name, result);
 		});
 
 		System.out.println(((pixels.get() / ((System.currentTimeMillis() - total) / 1000)) / 1000 / 1000f) + " MPixels/s");

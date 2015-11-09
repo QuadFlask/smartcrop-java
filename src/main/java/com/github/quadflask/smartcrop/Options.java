@@ -8,8 +8,8 @@ import java.awt.image.BufferedImage;
 public class Options {
 	public static final Options DEFAULT = new Options();
 
-	private int cropWidth = 0;
-	private int cropHeight = 0;
+	private int cropWidth = 100;
+	private int cropHeight = 100;
 	private float detailWeight = .2f;
 	private float[] skinColor = {0.7f, 0.57f, 0.44f};
 	private float skinBias = .01f;
