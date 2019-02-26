@@ -3,6 +3,7 @@ package com.github.quadflask.smartcrop;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.opencv.core.Rect;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -36,6 +37,9 @@ public class SmartCropTest {
 						e.printStackTrace();
 					}
 				});
+
+
+		OpencvDetect.getInstance().SetFrontalFacePath("/usr/local/Cellar/opencv/4.0.1/share/opencv4/haarcascades/haarcascade_frontalface_alt.xml");
 	}
 
 	@AfterClass
@@ -66,6 +70,7 @@ public class SmartCropTest {
 			long b = System.currentTimeMillis();
 
 			CropResult result = SmartCrop.analyze(options, img);
+			Rect[] rects = OpencvDetect.getInstance().detectFace(img);
 
 			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
 			pixels.addAndGet(img.getWidth() * img.getHeight());
