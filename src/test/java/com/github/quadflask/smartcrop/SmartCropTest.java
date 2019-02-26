@@ -72,6 +72,6 @@ public class SmartCropTest {
 			cropResults.put(name, result);
 		});
 
-		System.out.println(((pixels.get() / ((System.currentTimeMillis() - total) / 1000)) / 1000 / 1000f) + " MPixels/s");
+		System.out.println(((pixels.get() / ((System.currentTimeMillis() - total) / 1000f)) / 1000f / 1000f) + " MPixels/s");
 	}
 }
