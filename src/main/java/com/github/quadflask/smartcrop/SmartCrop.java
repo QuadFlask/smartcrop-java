@@ -110,9 +110,14 @@ public class SmartCrop {
 				score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
 				score.detail += detail * importance;
 				score.saturation += (od[p] & 0xff) / 255f * (detail + options.getSaturationBias()) * importance;
+				//todo
+				score.boost += (od[p]) / 255f * importance;
 			}
 		}
-		score.total = (score.detail * options.getDetailWeight() + score.skin * options.getSkinWeight() + score.saturation * options.getSaturationWeight()) / crop.width / crop.height;
+		score.total = (score.detail * options.getDetailWeight()
+				+ score.skin * options.getSkinWeight()
+				+ score.saturation * options.getSaturationWeight()
+				+ score.boost * options.getBoostWeight()) / crop.width / crop.height;
 		return score;
 	}
 

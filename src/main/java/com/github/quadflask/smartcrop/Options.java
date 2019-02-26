@@ -31,6 +31,7 @@ public class Options {
 	private float edgeRadius = 0.4f;
 	private float edgeWeight = -20f;
 	private float outsideImportance = -.5f;
+	private float boostWeight = 100.0f;
 	private boolean ruleOfThirds = false;
 	private int bufferedBitmapType = BufferedImage.TYPE_INT_ARGB;
 
@@ -221,6 +222,11 @@ public class Options {
 	public Options outsideImportance(float outsideImportance) {
 		this.outsideImportance = outsideImportance;
 		return this;
+	}
+
+
+	public float getBoostWeight() {
+		return boostWeight;
 	}
 
 	public boolean isRuleOfThirds() {

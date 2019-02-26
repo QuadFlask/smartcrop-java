@@ -80,4 +80,6 @@ public class OpencvDetect {
     }
 
 
+
+    public
 }
