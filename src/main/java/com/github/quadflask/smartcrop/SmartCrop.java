@@ -321,7 +321,7 @@ public class SmartCrop {
 				float lightness = sample[p] / 255f;
 				float sat = saturation(id[p]);
 				if (sat > options.getSaturationThreshold() && lightness >= options.getSaturationBrightnessMin() && lightness <= options.getSaturationBrightnessMax()) {
-					od[p] = (Math.round((sat - options.getSaturationThreshold()) * invSaturationThreshold) & 0xff) | (od[p] & 0xffffff00);
+					od[p] = clamp((int) ((sat - options.getSaturationThreshold()) * invSaturationThreshold)) | (od[p] & 0xffffff00);
 				} else {
 					od[p] &= 0xffffff00;
 				}
