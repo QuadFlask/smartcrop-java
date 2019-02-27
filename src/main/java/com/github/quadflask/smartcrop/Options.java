@@ -8,8 +8,8 @@ import java.awt.image.BufferedImage;
 public class Options {
 	public static final Options DEFAULT = new Options();
 
-	private int cropWidth = 100;
-	private int cropHeight = 100;
+	private int cropWidth = 200;
+	private int cropHeight = 200;
 	private float detailWeight = .2f;
 	private float[] skinColor = {0.7f, 0.57f, 0.44f};
 	private float skinBias = .01f;
@@ -23,17 +23,27 @@ public class Options {
 	private float saturationBias = 0.2f;
 	private float saturationWeight = 0.3f;
 	// step * minscale rounded down to the next power of two should be good
-	private int scoreDownSample = 8;
-	//	private int step = 8;
+	private int scoreDownSample = 10;
+	public int step = 8;
 	private float scaleStep = 0.1f;
 	private float minScale = 0.8f;
 	private float maxScale = 1.0f;
 	private float edgeRadius = 0.4f;
 	private float edgeWeight = -20f;
 	private float outsideImportance = -.5f;
+	private float prescale = 1f;
 	private float boostWeight = 100.0f;
 	private boolean ruleOfThirds = false;
 	private int bufferedBitmapType = BufferedImage.TYPE_INT_ARGB;
+	private Crop[] boost = null;
+
+	public void setCropWidth(int cropWidth) {
+		this.cropWidth = cropWidth;
+	}
+
+	public void setCropHeight(int cropHeight) {
+		this.cropHeight = cropHeight;
+	}
 
 	public int getCropWidth() {
 		return cropWidth;
@@ -224,9 +234,24 @@ public class Options {
 		return this;
 	}
 
+	public Crop[] getBoost() {
+		return boost;
+	}
+
+	public void setBoost(Crop[] boost) {
+		this.boost = boost;
+	}
 
 	public float getBoostWeight() {
 		return boostWeight;
+	}
+
+	public float getPrescale() {
+		return prescale;
+	}
+
+	public void setPrescale(float prescale) {
+		this.prescale = prescale;
 	}
 
 	public boolean isRuleOfThirds() {

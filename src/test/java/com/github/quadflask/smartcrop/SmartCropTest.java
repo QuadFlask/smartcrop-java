@@ -69,10 +69,10 @@ public class SmartCropTest {
 		bufferedImages.forEach((name, img) -> {
 			long b = System.currentTimeMillis();
 
+			options.setBoost(OpencvDetect.getInstance().detectFace(img));
 			CropResult result = SmartCrop.analyze(options, img);
-			Rect[] rects = OpencvDetect.getInstance().detectFace(img);
 
-			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
+			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms"  + "face:" + options.getBoost().length);
 			pixels.addAndGet(img.getWidth() * img.getHeight());
 			cropResults.put(name, result);
 		});

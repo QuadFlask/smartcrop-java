@@ -329,8 +329,7 @@
 
                 result.skin += od[p] / 255 * (detail + options.skinBias) * i;
                 result.detail += detail * i;
-                result.saturation +=
-                    od[p + 2] / 255 * (detail + options.saturationBias) * i;
+                result.saturation += od[p + 2] / 255 * (detail + options.saturationBias) * i;
                 result.boost += od[p + 3] / 255 * i;
             }
         }

@@ -7,7 +7,11 @@ import org.opencv.objdetect.CascadeClassifier;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 @Slf4j
 public class OpencvDetect {
@@ -20,7 +24,7 @@ public class OpencvDetect {
         try {
             String osName = System.getProperty("os.name");
             if (osName.startsWith("Windows")) {
-                System.loadLibrary("lib"+Core.NATIVE_LIBRARY_NAME);
+                System.loadLibrary("lib" + Core.NATIVE_LIBRARY_NAME);
             } else if (osName.startsWith("Mac")) {
                 System.load("/usr/local/lib/lib" + Core.NATIVE_LIBRARY_NAME + ".dylib");
 
@@ -38,15 +42,15 @@ public class OpencvDetect {
     }
 
 
-    public Rect[] detectFace(String imagePath) {
+    public Crop[] detectFace(String imagePath) {
         Mat image = Imgcodecs.imread(imagePath);
         MatOfRect faceDetections = new MatOfRect();
         cascadeClassifier.detectMultiScale(image, faceDetections);
         Rect[] rects = faceDetections.toArray();
-        return rects;
+        return toCrop(rects);
     }
 
-    public Rect[] detectFace(byte[] imageBase64) {
+    public Crop[] detectFace(byte[] imageBase64) {
 
         try {
             BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageBase64));
@@ -60,13 +64,15 @@ public class OpencvDetect {
     }
 
 
-    public Rect[] detectFace(BufferedImage bi) {
+    public Crop[] detectFace(BufferedImage bi) {
 
-        Mat image = new Mat(bi.getHeight(), bi.getWidth(), CvType.CV_8UC3);
+//        Mat image = Imgcodecs.imread("/Users/leeleon/github/smartcrop-java/src/test/resources/sample/test11.jpg");
+//        Mat image = new Mat(bi.getHeight(), bi.getWidth(), CvType.CV_8UC3);
+        Mat image = img2Mat(bi);
         MatOfRect faceDetections = new MatOfRect();
         cascadeClassifier.detectMultiScale(image, faceDetections);
         Rect[] rects = faceDetections.toArray();
-        return rects;
+        return toCrop(rects);
     }
 
     /**
@@ -80,6 +86,37 @@ public class OpencvDetect {
     }
 
 
+    private Crop[] toCrop(Rect[] rect) {
 
-    public
+        List<Crop> cropList = new ArrayList<>();
+        if (rect != null) {
+
+            Arrays.stream(rect).forEach(r -> cropList.add(new Crop(r.x,r.y,r.width,r.height)));
+
+        }
+
+        Crop[] crops = new Crop[cropList.size()];
+        cropList.toArray(crops);
+        return crops;
+    }
+
+
+    private Mat img2Mat(BufferedImage im)
+    {
+        // Convert INT to BYTE
+        //im = new BufferedImage(im.getWidth(), im.getHeight(),BufferedImage.TYPE_3BYTE_BGR);
+        // Convert bufferedimage to byte array
+        byte[] pixels = ((DataBufferByte) im.getRaster().getDataBuffer())
+                .getData();
+
+        // Create a Matrix the same size of image
+        Mat image = new Mat(im.getHeight(), im.getWidth(), CvType.CV_8UC3);
+        // Fill Matrix with image values
+        image.put(0, 0, pixels);
+
+        return image;
+
+    }
+
+
 }
