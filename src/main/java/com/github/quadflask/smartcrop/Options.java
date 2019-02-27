@@ -10,7 +10,7 @@ public class Options {
 
 	private float width = 0.0f;
 	private float height = 0.0f;
-	private float aspect = 0.0f;
+	private float aspect = 1.0f;
 	private int cropWidth = 100;
 	private int cropHeight = 100;
 	private float detailWeight = 0.2f;

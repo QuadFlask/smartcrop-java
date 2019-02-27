@@ -24,18 +24,18 @@ public class SmartCrop {
 		return new SmartCrop(options).analyze(input);
 	}
 
-	public CropResult analyze(BufferedImage input) {
+	public CropResult analyze(BufferedImage original) {
 		if (options.getAspect() != 0.0f) {
 			options.width(options.getAspect());
 			options.height(1.0f);
 		}
 
-		float scale = 1.0f;
 		float prescale = 1.0f;
+		BufferedImage input = original;
 
 		// calculate desired crop dimensions based on the image size
 		if (options.getWidth() != 0.0f && options.getHeight() != 0.0f) {
-			scale = Math.min(input.getWidth() / options.getWidth(), input.getHeight() / options.getHeight());
+			float scale = Math.min(input.getWidth() / options.getWidth(), input.getHeight() / options.getHeight());
 			options.cropWidth((int) Math.floor(options.getWidth() * scale));
 			options.cropHeight((int) Math.floor(options.getHeight() * scale));
 
@@ -47,17 +47,10 @@ public class SmartCrop {
 			if (options.isPrescale()) {
 				prescale = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
 				if (prescale < 1.0) {
-					System.out.println("Prescaling");
-					BufferedImage scaledInput = new BufferedImage((int) (input.getWidth() * prescale), (int) (input.getHeight() * prescale), options.getBufferedBitmapType());
-					Graphics g = scaledInput.getGraphics();
-					g.drawImage(input, 0, 0, scaledInput.getWidth(), scaledInput.getHeight(), 0, 0, input.getWidth(), input.getHeight(), null);
-					g.dispose();
-
-					input = scaledInput;
+					input = createScaleDown(input, prescale);
 					options.cropWidth((int) (options.getCropWidth() * prescale));
 					options.cropHeight((int) (options.getCropHeight() * prescale));
 				} else {
-					System.out.println("Not prescaling");
 					prescale = 1.0f;
 				}
 			}
@@ -95,12 +88,14 @@ public class SmartCrop {
 			crop.height = (int) Math.floor(crop.height / prescale);
 		}
 
-		CropResult result = CropResult.newInstance(topCrop, crops, scoreOutput, createCrop(input, topCrop));
+		CropResult result = CropResult.newInstance(topCrop, crops, scoreOutput, createCrop(original, topCrop));
 
-		Graphics graphics = scoreOutput.getGraphics();
-		graphics.setColor(Color.cyan);
-		if (topCrop != null)
-			graphics.drawRect(topCrop.x, topCrop.y, topCrop.width, topCrop.height);
+		if (topCrop != null) {
+			Graphics graphics = scoreOutput.getGraphics();
+			graphics.setColor(Color.cyan);
+			graphics.drawRect((int) (topCrop.x * prescale), (int) (topCrop.y * prescale), (int) (topCrop.width * prescale), (int) (topCrop.height * prescale));
+			graphics.dispose();
+		}
 
 		return result;
 	}
@@ -150,16 +145,19 @@ public class SmartCrop {
 	}
 
 	public BufferedImage createCrop(BufferedImage input, Crop crop) {
-		int tw = options.getCropWidth();
-		int th = options.getCropHeight();
-		BufferedImage image = new BufferedImage(tw, th, options.getBufferedBitmapType());
-		image.getGraphics().drawImage(input, 0, 0, tw, th, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
+		BufferedImage image = new BufferedImage(crop.width, crop.height, options.getBufferedBitmapType());
+		image.getGraphics().drawImage(input, 0, 0, crop.width, crop.height, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
 		return image;
 	}
 
 	private BufferedImage createScaleDown(BufferedImage image, float ratio) {
-		BufferedImage scaled = new BufferedImage((int) (ratio * image.getWidth()), (int) (ratio * image.getHeight()), options.getBufferedBitmapType());
-		scaled.getGraphics().drawImage(image, 0, 0, scaled.getWidth(), scaled.getHeight(), 0, 0, scaled.getWidth(), scaled.getHeight(), null);
+		BufferedImage scaled = new BufferedImage((int) (image.getWidth() * ratio), (int) (image.getHeight() * ratio), options.getBufferedBitmapType());
+
+		Graphics2D g = (Graphics2D) scaled.getGraphics();
+		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		g.drawImage(image, 0, 0, scaled.getWidth(), scaled.getHeight(), 0, 0, image.getWidth(), image.getHeight(), null);
+		g.dispose();
+
 		return scaled;
 	}
 
