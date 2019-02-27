@@ -34,7 +34,7 @@ public class Options {
 	private float edgeRadius = 0.4f;
 	private float edgeWeight = -20f;
 	private float outsideImportance = -.5f;
-	private boolean ruleOfThirds = false;
+	private boolean ruleOfThirds = true;
 	private boolean prescale = true;
 	private int bufferedBitmapType = BufferedImage.TYPE_INT_ARGB;
 

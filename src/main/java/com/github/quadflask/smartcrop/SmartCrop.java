@@ -200,7 +200,7 @@ public class SmartCrop {
 				score.saturation += (od[p] & 0xff) / 255f * (detail + options.getSaturationBias()) * importance;
 			}
 		}
-		score.total = (score.detail * options.getDetailWeight() + score.skin * options.getSkinWeight() + score.saturation * options.getSaturationWeight()) / crop.width / crop.height;
+		score.total = (score.detail * options.getDetailWeight() + score.skin * options.getSkinWeight() + score.saturation * options.getSaturationWeight()) / (crop.width * crop.height);
 		return score;
 	}
 
@@ -215,11 +215,11 @@ public class SmartCrop {
 		float dx = Math.max(px - 1.0f + options.getEdgeRadius(), 0);
 		float dy = Math.max(py - 1.0f + options.getEdgeRadius(), 0);
 		float d = (dx * dx + dy * dy) * options.getEdgeWeight();
-		d += (float) (1.4142135f - Math.sqrt(px * px + py * py));
+		float s = (float) (1.41f - Math.sqrt(px * px + py * py));
 		if (options.isRuleOfThirds()) {
-			d += (Math.max(0, d + 0.5f) * 1.2f) * (thirds(px) + thirds(py));
+			s += Math.max(0, s + d + 0.5) * 1.2f * (thirds(px) + thirds(py));
 		}
-		return d;
+		return s + d;
 	}
 
 	static class Image {
