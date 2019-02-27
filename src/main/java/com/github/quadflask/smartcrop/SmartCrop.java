@@ -89,11 +89,24 @@ public class SmartCrop {
 
 
             if (options.getBoost().length == 1) {
-                for (Crop r : options.getBoost()) {
-                    if (crop.x <= r.x && crop.width + crop.x > r.width && crop.y < r.y && crop.y+crop.height > r.y) {
-                    }
+                Crop r = options.getBoost()[0];
 
+                if (crop.x > r.x) {
+                    crop.x = r.x;
+                }
 
+                if (crop.width < r.width) {
+                    crop.width = r.width;
+                }
+
+                if (crop.y > r.y) {
+                    crop.y = r.y;
+                } else if ((crop.y + crop.height) < (r.y + r.height)) {
+                    crop.height = crop.height + (r.y + r.height - crop.y - crop.height) * options.getScoreDownSample();
+                }
+
+                if (crop.height < r.height) {
+                    crop.y = r.height;
                 }
             }
 
