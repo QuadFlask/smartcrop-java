@@ -300,7 +300,7 @@ public class SmartCrop {
 				float lightness = sample[p] / 255f;
 				float skin = calcSkinColor(id[p]);
 				if (skin > options.getSkinThreshold() && lightness >= options.getSkinBrightnessMin() && lightness <= options.getSkinBrightnessMax()) {
-					od[p] = ((Math.round((skin - options.getSkinThreshold()) * invSkinThreshold)) & 0xff) << 16 | (od[p] & 0xff00ffff);
+					od[p] = clamp((int) ((skin - options.getSkinThreshold()) * invSkinThreshold)) << 16 | (od[p] & 0xff00ffff);
 				} else {
 					od[p] &= 0xff00ffff;
 				}
