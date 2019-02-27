@@ -73,12 +73,10 @@ public class SmartCrop {
 		saturationDetect(inputI, outputI);
 		// applyBoosts()
 
-		// scoreOutput = downSample
-		BufferedImage output = new BufferedImage(input.getWidth(), input.getHeight(), options.getBufferedBitmapType());
-		output.setRGB(0, 0, input.getWidth(), input.getHeight(), outputI.getRGB(), 0, input.getWidth());
+		BufferedImage scoreOutput = new BufferedImage(input.getWidth(), input.getHeight(), options.getBufferedBitmapType());
+		scoreOutput.setRGB(0, 0, input.getWidth(), input.getHeight(), outputI.getRGB(), 0, input.getWidth());
+		BufferedImage score = downSample(scoreOutput, options.getScoreDownSample());
 
-		BufferedImage score = new BufferedImage(input.getWidth() / options.getScoreDownSample(), input.getHeight() / options.getScoreDownSample(), options.getBufferedBitmapType());
-		score.getGraphics().drawImage(output, 0, 0, score.getWidth(), score.getHeight(), 0, 0, output.getWidth(), output.getHeight(), null);
 		Image scoreI = new Image(score);
 
 		float topScore = Float.NEGATIVE_INFINITY;
@@ -97,14 +95,58 @@ public class SmartCrop {
 			crop.height = (int) Math.floor(crop.height / prescale);
 		}
 
-		CropResult result = CropResult.newInstance(topCrop, crops, output, createCrop(input, topCrop));
+		CropResult result = CropResult.newInstance(topCrop, crops, scoreOutput, createCrop(input, topCrop));
 
-		Graphics graphics = output.getGraphics();
+		Graphics graphics = scoreOutput.getGraphics();
 		graphics.setColor(Color.cyan);
 		if (topCrop != null)
 			graphics.drawRect(topCrop.x, topCrop.y, topCrop.width, topCrop.height);
 
 		return result;
+	}
+
+	public BufferedImage downSample(BufferedImage input, int factor) {
+		int[] idata = input.getRGB(0, 0, input.getWidth(), input.getHeight(), null, 0, input.getWidth());
+		int iwidth = input.getWidth();
+		int width = input.getWidth() / factor;
+		int height = input.getHeight() / factor;
+
+		BufferedImage output = new BufferedImage(width, height, options.getBufferedBitmapType());
+		int[] data = output.getRGB(0, 0, width, height, null, 0, width);
+		double ifactor2 = 1.0 / (factor * factor);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				int i = (y * width + x);
+
+				int r = 0, g = 0, b = 0, a = 0, mr = 0, mg = 0;
+
+				for (int v = 0; v < factor; v++) {
+					for (int u = 0; u < factor; u++) {
+						int rgb = idata[(y * factor + v) * iwidth + (x * factor + u)];
+
+						r += rgb >> 16 & 0xff;
+						g += rgb >> 8 & 0xff;
+						b += rgb & 0xff;
+						a += rgb >> 24 & 0xff;
+
+						mr = Math.max(mr, rgb >> 16 & 0xff);
+						mg = Math.max(mg, rgb >> 8 & 0xff);
+						// unused
+						// mb = Math.max(mb, rgb & 0xff);
+					}
+				}
+
+				// this is some funky magic to preserve detail a bit more for
+				// skin (r) and detail (g). Saturation (b) does not get this boost.
+				data[i] = Math.min(255, (int) (r * ifactor2 * 0.5 + mr * 0.5)) << 16 |
+						  Math.min(255, (int) (g * ifactor2 * 0.7 + mg * 0.3)) << 8 |
+						  Math.min(255, (int) (b * ifactor2)) |
+						  Math.min(255, (int) (a * ifactor2)) << 24;
+			}
+		}
+
+		output.setRGB(0, 0, width, height, data, 0, width);
+		return output;
 	}
 
 	public BufferedImage createCrop(BufferedImage input, Crop crop) {
@@ -130,8 +172,8 @@ public class SmartCrop {
 		for (float scale = options.getMaxScale(); scale >= options.getMinScale(); scale -= options.getScaleStep()) {
 			int sampleW = (int) (cropWidth * scale);
 			int sampleH = (int) (cropHeight * scale);
-			for (int y = 0; y + sampleH <= height; y += options.getScoreDownSample()) {
-				for (int x = 0; x + sampleW <= width; x += options.getScoreDownSample()) {
+			for (int y = 0; y + sampleH <= height; y += options.getStep()) {
+				for (int x = 0; x + sampleW <= width; x += options.getStep()) {
 					crops.add(new Crop(x, y, sampleW, sampleH));
 				}
 			}

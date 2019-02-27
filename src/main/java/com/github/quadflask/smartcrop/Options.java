@@ -27,7 +27,7 @@ public class Options {
 	private float saturationWeight = 0.1f;
 	// step * minscale rounded down to the next power of two should be good
 	private int scoreDownSample = 8;
-	//	private int step = 8;
+	private int step = 8;
 	private float scaleStep = 0.1f;
 	private float minScale = 0.8f;
 	private float maxScale = 1.0f;
@@ -192,6 +192,15 @@ public class Options {
 
 	public Options scoreDownSample(int scoreDownSample) {
 		this.scoreDownSample = scoreDownSample;
+		return this;
+	}
+
+	public int getStep() {
+		return step;
+	}
+
+	public Options step(int step) {
+		this.step = step;
 		return this;
 	}
 
