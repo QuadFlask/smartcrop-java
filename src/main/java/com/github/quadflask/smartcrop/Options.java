@@ -8,11 +8,14 @@ import java.awt.image.BufferedImage;
 public class Options {
 	public static final Options DEFAULT = new Options();
 
+	private float width = 0.0f;
+	private float height = 0.0f;
+	private float aspect = 0.0f;
 	private int cropWidth = 100;
 	private int cropHeight = 100;
-	private float detailWeight = .2f;
-	private float[] skinColor = {0.7f, 0.57f, 0.44f};
-	private float skinBias = .01f;
+	private float detailWeight = 0.2f;
+	private float[] skinColor = {0.78f, 0.57f, 0.44f};
+	private float skinBias = 0.01f;
 	private float skinBrightnessMin = 0.2f;
 	private float skinBrightnessMax = 1.0f;
 	private float skinThreshold = 0.8f;
@@ -21,7 +24,7 @@ public class Options {
 	private float saturationBrightnessMax = 0.9f;
 	private float saturationThreshold = 0.4f;
 	private float saturationBias = 0.2f;
-	private float saturationWeight = 0.3f;
+	private float saturationWeight = 0.1f;
 	// step * minscale rounded down to the next power of two should be good
 	private int scoreDownSample = 8;
 	//	private int step = 8;
@@ -32,7 +35,30 @@ public class Options {
 	private float edgeWeight = -20f;
 	private float outsideImportance = -.5f;
 	private boolean ruleOfThirds = false;
+	private boolean prescale = true;
 	private int bufferedBitmapType = BufferedImage.TYPE_INT_ARGB;
+
+	public float getWidth() {
+		return width;
+	}
+
+	public Options width(float width) {
+		this.width = width;
+		return this;
+	}
+
+	public float getHeight() {
+		return height;
+	}
+
+	public Options height(float height) {
+		this.height = height;
+		return this;
+	}
+
+	public float getAspect() {
+		return aspect;
+	}
 
 	public int getCropWidth() {
 		return cropWidth;
@@ -229,6 +255,15 @@ public class Options {
 
 	public Options ruleOfThirds(boolean ruleOfThirds) {
 		this.ruleOfThirds = ruleOfThirds;
+		return this;
+	}
+
+	public boolean isPrescale() {
+		return prescale;
+	}
+
+	public Options prescale(boolean prescale) {
+		this.prescale = prescale;
 		return this;
 	}
 

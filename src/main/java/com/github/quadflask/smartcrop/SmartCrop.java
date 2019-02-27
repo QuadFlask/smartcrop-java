@@ -25,6 +25,45 @@ public class SmartCrop {
 	}
 
 	public CropResult analyze(BufferedImage input) {
+		if (options.getAspect() != 0.0f) {
+			options.width(options.getAspect());
+			options.height(1.0f);
+		}
+
+		float scale = 1.0f;
+		float prescale = 1.0f;
+
+		// calculate desired crop dimensions based on the image size
+		if (options.getWidth() != 0.0f && options.getHeight() != 0.0f) {
+			scale = Math.min(input.getWidth() / options.getWidth(), input.getHeight() / options.getHeight());
+			options.cropWidth((int) Math.floor(options.getWidth() * scale));
+			options.cropHeight((int) Math.floor(options.getHeight() * scale));
+
+			// Img = 100x100, width = 95x95, scale = 100/95, 1/scale > min
+			// don't set minscale smaller than 1/scale
+			// -> don't pick crops that need upscaling
+			options.minScale(Math.min(options.getMaxScale(), Math.max(1.0f / scale, options.getMinScale())));
+
+			if (options.isPrescale()) {
+				prescale = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
+				if (prescale < 1.0) {
+					System.out.println("Prescaling");
+					BufferedImage scaledInput = new BufferedImage((int) (input.getWidth() * prescale), (int) (input.getHeight() * prescale), options.getBufferedBitmapType());
+					Graphics g = scaledInput.getGraphics();
+					g.drawImage(input, 0, 0, scaledInput.getWidth(), scaledInput.getHeight(), 0, 0, input.getWidth(), input.getHeight(), null);
+					g.dispose();
+
+					input = scaledInput;
+					options.cropWidth((int) (options.getCropWidth() * prescale));
+					options.cropHeight((int) (options.getCropHeight() * prescale));
+				} else {
+					System.out.println("Not prescaling");
+					prescale = 1.0f;
+				}
+			}
+		}
+
+		// analyse(options, input)
 		Image inputI = new Image(input);
 		Image outputI = new Image(input.getWidth(), input.getHeight());
 
@@ -32,7 +71,9 @@ public class SmartCrop {
 		edgeDetect(inputI, outputI);
 		skinDetect(inputI, outputI);
 		saturationDetect(inputI, outputI);
+		// applyBoosts()
 
+		// scoreOutput = downSample
 		BufferedImage output = new BufferedImage(input.getWidth(), input.getHeight(), options.getBufferedBitmapType());
 		output.setRGB(0, 0, input.getWidth(), input.getHeight(), outputI.getRGB(), 0, input.getWidth());
 
@@ -42,7 +83,7 @@ public class SmartCrop {
 
 		float topScore = Float.NEGATIVE_INFINITY;
 		Crop topCrop = null;
-		List<Crop> crops = crops(scoreI);
+		List<Crop> crops = generateCrops(input.getWidth(), input.getHeight());
 
 		for (Crop crop : crops) {
 			crop.score = score(scoreI, crop);
@@ -50,10 +91,10 @@ public class SmartCrop {
 				topCrop = crop;
 				topScore = crop.score.total;
 			}
-			crop.x *= options.getScoreDownSample();
-			crop.y *= options.getScoreDownSample();
-			crop.width *= options.getScoreDownSample();
-			crop.height *= options.getScoreDownSample();
+			crop.x = (int) Math.floor(crop.x / prescale);
+			crop.y = (int) Math.floor(crop.y / prescale);
+			crop.width = (int) Math.floor((crop.width / prescale));
+			crop.height = (int) Math.floor(crop.height / prescale);
 		}
 
 		CropResult result = CropResult.newInstance(topCrop, crops, output, createCrop(input, topCrop));
@@ -80,16 +121,18 @@ public class SmartCrop {
 		return scaled;
 	}
 
-	private List<Crop> crops(Image image) {
-		List<Crop> crops = new ArrayList<>();
-		int width = image.width;
-		int height = image.height;
+	private List<Crop> generateCrops(int width, int height) {
 		int minDimension = Math.min(width, height);
+		int cropWidth = options.getCropWidth() == 0 ? minDimension : options.getCropWidth();
+		int cropHeight = options.getCropHeight() == 0 ? minDimension : options.getCropHeight();
 
+		List<Crop> crops = new ArrayList<>();
 		for (float scale = options.getMaxScale(); scale >= options.getMinScale(); scale -= options.getScaleStep()) {
-			for (int y = 0; y + minDimension * scale <= height; y += options.getScoreDownSample()) {
-				for (int x = 0; x + minDimension * scale <= width; x += options.getScoreDownSample()) {
-					crops.add(new Crop(x, y, (int) (minDimension * scale), (int) (minDimension * scale)));
+			int sampleW = (int) (cropWidth * scale);
+			int sampleH = (int) (cropHeight * scale);
+			for (int y = 0; y + sampleH <= height; y += options.getScoreDownSample()) {
+				for (int x = 0; x + sampleW <= width; x += options.getScoreDownSample()) {
+					crops.add(new Crop(x, y, sampleW, sampleH));
 				}
 			}
 		}
@@ -99,12 +142,15 @@ public class SmartCrop {
 	private Score score(Image output, Crop crop) {
 		Score score = new Score();
 		int[] od = output.getRGB();
-		int width = output.width;
-		int height = output.height;
+		int downSample = options.getScoreDownSample();
+		float invDownSample = 1.0f / downSample;
+		float outputHeightDownSample = output.height * downSample;
+		float outputWidthDownSample = output.width * downSample;
+		int outputWidth = output.width;
 
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				int p = y * width + x;
+		for (int y = 0; y < outputHeightDownSample; y += downSample) {
+			for (int x = 0; x < outputWidthDownSample; x += downSample) {
+				int p = (int) (Math.floor(y * invDownSample) * outputWidth + Math.floor(x * invDownSample));
 				float importance = importance(crop, x, y);
 				float detail = (od[p] >> 8 & 0xff) / 255f;
 				score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
