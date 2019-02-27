@@ -10,7 +10,7 @@ import java.util.List;
  */
 public class SmartCrop {
 	private Options options;
-	private int[] cd;
+	private int[] sample;
 
 	public SmartCrop() {
 		this(Options.DEFAULT);
@@ -248,7 +248,7 @@ public class SmartCrop {
 
 	private void prepareCie(Image i) {
 		int[] id = i.getRGB();
-		cd = new int[id.length];
+		sample = new int[id.length];
 		int w = i.width;
 		int h = i.height;
 
@@ -256,7 +256,7 @@ public class SmartCrop {
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				p = y * w + x;
-				cd[p] = cie(id[p]);
+				sample[p] = cie(id[p]);
 			}
 		}
 	}
@@ -266,23 +266,19 @@ public class SmartCrop {
 		int w = i.width;
 		int h = i.height;
 		int p;
-		int lightness;
 
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				p = y * w + x;
+				int lightness;
 				if (x == 0 || x >= w - 1 || y == 0 || y >= h - 1) {
-					lightness = 0;
+					lightness = sample[p];
 				} else {
-					lightness = cd[p] * 8
-							- cd[p - w - 1]
-							- cd[p - w]
-							- cd[p - w + 1]
-							- cd[p - 1]
-							- cd[p + 1]
-							- cd[p + w - 1]
-							- cd[p + w]
-							- cd[p + w + 1]
+					lightness = sample[p] * 4 -
+								sample[p - w] -
+								sample[p - 1] -
+								sample[p + 1] -
+								sample[p + w]
 					;
 				}
 
@@ -301,7 +297,7 @@ public class SmartCrop {
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				int p = y * w + x;
-				float lightness = cd[p] / 255f;
+				float lightness = sample[p] / 255f;
 				float skin = calcSkinColor(id[p]);
 				if (skin > options.getSkinThreshold() && lightness >= options.getSkinBrightnessMin() && lightness <= options.getSkinBrightnessMax()) {
 					od[p] = ((Math.round((skin - options.getSkinThreshold()) * invSkinThreshold)) & 0xff) << 16 | (od[p] & 0xff00ffff);
@@ -322,7 +318,7 @@ public class SmartCrop {
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				int p = y * w + x;
-				float lightness = cd[p] / 255f;
+				float lightness = sample[p] / 255f;
 				float sat = saturation(id[p]);
 				if (sat > options.getSaturationThreshold() && lightness >= options.getSaturationBrightnessMin() && lightness <= options.getSaturationBrightnessMax()) {
 					od[p] = (Math.round((sat - options.getSaturationThreshold()) * invSaturationThreshold) & 0xff) | (od[p] & 0xffffff00);
@@ -353,7 +349,7 @@ public class SmartCrop {
 		int r = rgb >> 16 & 0xff;
 		int g = rgb >> 8 & 0xff;
 		int b = rgb & 0xff;
-		return Math.min(0xff, (int) (0.2126f * b + 0.7152f * g + 0.0722f * r + .5f));
+		return Math.min(0xff, (int) (0.5126f * b + 0.7152f * g + 0.0722f * r));
 	}
 
 	private float saturation(int rgb) {
