@@ -55,6 +55,11 @@ public class Options {
 		return aspect;
 	}
 
+	public Options aspect(float aspect) {
+		this.aspect = aspect;
+		return this;
+	}
+
 	public int getCropWidth() {
 		return cropWidth;
 	}

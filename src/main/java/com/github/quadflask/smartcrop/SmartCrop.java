@@ -1,7 +1,6 @@
 package com.github.quadflask.smartcrop;
 
 import java.awt.Color;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -21,8 +20,8 @@ public class SmartCrop {
 	private SmartCrop() {
 	}
 
-	public static CropResult analyze(Options options, BufferedImage input) {
-		return new SmartCrop().doAnalyze(options, input).generateCrops(options);
+	public static SmartCrop analyze(Options options, BufferedImage input) {
+		return new SmartCrop().doAnalyze(options, input);
 	}
 
 	private SmartCrop doAnalyze(Options options, BufferedImage original) {
@@ -55,7 +54,7 @@ public class SmartCrop {
 		return this;
 	}
 
-	private CropResult generateCrops(Options options) {
+	public CropResult generateCrops(Options options) {
 		if (options.getAspect() != 0.0) {
 			options.width(options.getAspect());
 			options.height(1.0f);
@@ -96,16 +95,17 @@ public class SmartCrop {
 			crop.height = (int) Math.floor(crop.height / prescale);
 		}
 
-		CropResult result = CropResult.newInstance(topCrop, crops, scoreOutput);
-
+		BufferedImage debugOutput = scoreOutput;
 		if (topCrop != null) {
-			Graphics graphics = scoreOutput.getGraphics();
-			graphics.setColor(Color.cyan);
-			graphics.drawRect((int) (topCrop.x * prescale), (int) (topCrop.y * prescale), (int) (topCrop.width * prescale), (int) (topCrop.height * prescale));
-			graphics.dispose();
+			debugOutput = new BufferedImage(scoreOutput.getWidth(), scoreOutput.getHeight(), scoreOutput.getType());
+			Graphics2D g = (Graphics2D) debugOutput.getGraphics();
+			g.drawImage(scoreOutput, 0, 0, debugOutput.getWidth(), debugOutput.getHeight(), 0, 0, scoreOutput.getWidth(), scoreOutput.getHeight(), null);
+			g.setColor(Color.cyan);
+			g.drawRect((int) (topCrop.x * prescale), (int) (topCrop.y * prescale), (int) (topCrop.width * prescale), (int) (topCrop.height * prescale));
+			g.dispose();
 		}
 
-		return result;
+		return CropResult.newInstance(topCrop, crops, debugOutput);
 	}
 
 	public BufferedImage downSample(Options options, BufferedImage input) {
