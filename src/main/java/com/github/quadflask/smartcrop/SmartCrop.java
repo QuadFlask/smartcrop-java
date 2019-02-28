@@ -27,27 +27,6 @@ public class SmartCrop {
     public CropResult analyze(BufferedImage input) {
         Image inputI = new Image(input);
 
-//        float wf = 256f / inputI.width;
-//        float hf = 256f / inputI.height;
-//        float prescale = Math.min(Math.max(wf, hf), 1f);
-//        if (prescale < 1) {
-//
-//            options.setPrescale(prescale);
-//            options.cropWidth(Math.round(options.getCropWidth() * prescale));
-//            options.cropHeight(Math.round(options.getCropHeight() * prescale));
-//
-//            if (options.getBoost() != null && options.getBoost().length > 0) {
-//                for (Crop c : options.getBoost()) {
-//                    c.height = Math.round(c.height * prescale);
-//                    c.width = Math.round(c.width * prescale);
-//                    c.x = Math.round(c.x * prescale);
-//                    c.y = Math.round(c.y * prescale);
-//                }
-//            }
-//
-//
-//        }
-
 
         Image outputI = new Image(input.getWidth(), input.getHeight());
 
@@ -76,11 +55,6 @@ public class SmartCrop {
                 topScore = crop.score.total;
             }
 
-//            crop.x = crop.x
-//            crop.y = Math.round(crop.y / options.getPrescale());
-//            crop.width = Math.round(crop.width / options.getPrescale());
-//            crop.height = Math.round(crop.height / options.getPrescale());
-
 
             crop.x *= options.getScoreDownSample();
             crop.y *= options.getScoreDownSample();
@@ -88,7 +62,7 @@ public class SmartCrop {
             crop.height *= options.getScoreDownSample();
 
 
-            if (options.getBoost().length == 1) {
+            if (options.getBoost() != null && options.getBoost().length == 1) {
                 Crop r = options.getBoost()[0];
 
                 if (crop.x > r.x) {
@@ -114,15 +88,16 @@ public class SmartCrop {
         }
 
         CropResult result = CropResult.newInstance(topCrop, crops, output, createCrop(input, topCrop));
+        if (options.isDebug()) {
+            Graphics graphics = output.getGraphics();
+            graphics.setColor(Color.cyan);
+            if (topCrop != null)
+                graphics.drawRect(topCrop.x, topCrop.y, topCrop.width, topCrop.height);
 
-        Graphics graphics = output.getGraphics();
-        graphics.setColor(Color.cyan);
-        if (topCrop != null)
-            graphics.drawRect(topCrop.x, topCrop.y, topCrop.width, topCrop.height);
-
-        if (options.getBoost().length > 0) {
-            for (Crop r : options.getBoost()) {
-                graphics.drawRect(r.x, r.y, r.width, r.height);
+            if (options.getBoost().length > 0) {
+                for (Crop r : options.getBoost()) {
+                    graphics.drawRect(r.x, r.y, r.width, r.height);
+                }
             }
         }
 

@@ -8,8 +8,9 @@ import java.awt.image.BufferedImage;
 public class Options {
 	public static final Options DEFAULT = new Options();
 
-	private int cropWidth = 200;
-	private int cropHeight = 200;
+	private boolean debug = false;
+	private int cropWidth = 100;
+	private int cropHeight = 100;
 	private float detailWeight = .2f;
 	private float[] skinColor = {0.7f, 0.57f, 0.44f};
 	private float skinBias = .01f;
@@ -23,7 +24,7 @@ public class Options {
 	private float saturationBias = 0.2f;
 	private float saturationWeight = 0.3f;
 	// step * minscale rounded down to the next power of two should be good
-	private int scoreDownSample = 10;
+	private int scoreDownSample = 8;
 	public int step = 8;
 	private float scaleStep = 0.1f;
 	private float minScale = 0.8f;
@@ -270,5 +271,13 @@ public class Options {
 	public Options bufferedBitmapType(int bufferedBitmapType) {
 		this.bufferedBitmapType = bufferedBitmapType;
 		return this;
+	}
+
+	public boolean isDebug() {
+		return debug;
+	}
+
+	public void setDebug(boolean debug) {
+		this.debug = debug;
 	}
 }
