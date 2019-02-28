@@ -32,6 +32,13 @@ public class SmartCrop {
 			prescale = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
 			if (prescale < 1.0f) {
 				scaledInput = createScaleDown(original, prescale);
+
+				options.getBoost().forEach(boost -> {
+					boost.x = (int) (boost.x * prescale);
+					boost.y = (int) (boost.y * prescale);
+					boost.width = (int) (boost.width * prescale);
+					boost.height = (int) (boost.height * prescale);
+				});
 			} else {
 				prescale = 1.0f;
 			}
@@ -45,7 +52,7 @@ public class SmartCrop {
 		edgeDetect(inputI, outputI, cie);
 		skinDetect(options, inputI, outputI, cie);
 		saturationDetect(options, inputI, outputI, cie);
-		// applyBoosts()
+		applyBoosts(options, outputI);
 
 		scoreOutput = new BufferedImage(scaledInput.getWidth(), scaledInput.getHeight(), BufferedImage.TYPE_INT_ARGB);
 		scoreOutput.setRGB(0, 0, scaledInput.getWidth(), scaledInput.getHeight(), outputI.getRGB(), 0, scaledInput.getWidth());
@@ -199,9 +206,10 @@ public class SmartCrop {
 				score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
 				score.detail += detail * importance;
 				score.saturation += (od[p] & 0xff) / 255f * (detail + options.getSaturationBias()) * importance;
+				score.boost += (od[p] >> 24 & 0xff) / 255f * importance;
 			}
 		}
-		score.total = (score.detail * options.getDetailWeight() + score.skin * options.getSkinWeight() + score.saturation * options.getSaturationWeight()) / (crop.width * crop.height);
+		score.total = (score.detail * options.getDetailWeight() + score.skin * options.getSkinWeight() + score.saturation * options.getSaturationWeight() + score.boost * options.getBoostWeight()) / (crop.width * crop.height);
 		return score;
 	}
 
@@ -349,6 +357,29 @@ public class SmartCrop {
 		float gd = (g / mag - skinColor[1]);
 		float bd = (b / mag - skinColor[2]);
 		return 1f - (float) Math.sqrt(rd * rd + gd * gd + bd * bd);
+	}
+
+	private void applyBoosts(Options options, Image o) {
+		if (options.getBoost().isEmpty()) {
+			return;
+		}
+
+		int w = o.width;
+		int[] od = o.getRGB();
+		options.getBoost().forEach(boost -> {
+			int x0 = boost.x;
+			int y0 = boost.y;
+			int x1 = boost.x + boost.width;
+			int y1 = boost.y + boost.height;
+			int weight = (int) (boost.weight * 255);
+			for (int y = y0; y < y1; y++) {
+				for (int x = x0; x < x1; x++) {
+					int i = y * w + x;
+					int v = od[i] >> 24 & 0xff;
+					od[i] |= clamp(v + weight) << 24 & 0x00ffffff;
+				}
+			}
+		});
 	}
 
 	private int clamp(int v) {

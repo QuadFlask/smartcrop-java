@@ -1,5 +1,8 @@
 package com.github.quadflask.smartcrop;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Created by flask on 2015. 10. 30..
  */
@@ -30,6 +33,8 @@ public class Options {
 	private float edgeRadius = 0.4f;
 	private float edgeWeight = -20f;
 	private float outsideImportance = -.5f;
+	private List<Boost> boost = Collections.emptyList();
+	private float boostWeight = 100.0f;
 	private boolean ruleOfThirds = true;
 	private boolean prescale = true;
 
@@ -256,6 +261,24 @@ public class Options {
 	public Options outsideImportance(float outsideImportance) {
 		this.outsideImportance = outsideImportance;
 		return this;
+	}
+
+	public Options boost(List<Boost> boost) {
+		this.boost = boost;
+		return this;
+	}
+
+	public List<Boost> getBoost() {
+		return boost;
+	}
+
+	public Options boostWeight(float boostWeight) {
+		this.boostWeight = boostWeight;
+		return this;
+	}
+
+	public float getBoostWeight() {
+		return boostWeight;
 	}
 
 	public boolean isRuleOfThirds() {
