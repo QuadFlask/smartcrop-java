@@ -1,16 +1,12 @@
 package com.github.quadflask.smartcrop;
 
-import java.awt.image.BufferedImage;
-
 /**
  * Created by flask on 2015. 10. 30..
  */
 public class Options {
-	public static final Options DEFAULT = new Options();
-
-	private float width = 0.0f;
-	private float height = 0.0f;
-	private float aspect = 1.0f;
+	private float width = 191.0f;
+	private float height = 100.0f;
+	private float aspect = 0.0f;
 	private int cropWidth = 100;
 	private int cropHeight = 100;
 	private float detailWeight = 0.2f;
@@ -36,7 +32,6 @@ public class Options {
 	private float outsideImportance = -.5f;
 	private boolean ruleOfThirds = true;
 	private boolean prescale = true;
-	private int bufferedBitmapType = BufferedImage.TYPE_INT_ARGB;
 
 	public float getWidth() {
 		return width;
@@ -273,15 +268,6 @@ public class Options {
 
 	public Options prescale(boolean prescale) {
 		this.prescale = prescale;
-		return this;
-	}
-
-	public int getBufferedBitmapType() {
-		return bufferedBitmapType;
-	}
-
-	public Options bufferedBitmapType(int bufferedBitmapType) {
-		this.bufferedBitmapType = bufferedBitmapType;
 		return this;
 	}
 }

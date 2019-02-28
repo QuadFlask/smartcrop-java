@@ -5,6 +5,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -41,23 +43,22 @@ public class SmartCropTest {
 	@AfterClass
 	public static void teardown() {
 		cropResults.forEach((name, cropResult) -> {
-			new Thread(() -> {
-				try {
-					long b = System.currentTimeMillis();
-					String newName = name; // name.replace("jpg", "png");
-					ImageIO.write(cropResult.debugImage, "jpg", new File(debugPath, newName));
-					ImageIO.write(cropResult.resultImage, "jpg", new File(resultPath, newName));
-					System.out.println("saved... " + newName + " / took " + (System.currentTimeMillis() - b) + "ms");
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}).run();
+			try {
+				long b = System.currentTimeMillis();
+				String newName = name.replace("jpg", "png");
+				ImageIO.write(cropResult.debugImage, "png", new File(debugPath, newName));
+
+				BufferedImage resultImage = createCrop(bufferedImages.get(name), cropResult.topCrop);
+				ImageIO.write(resultImage, "png", new File(resultPath, newName));
+				System.out.println("saved... " + newName + " / took " + (System.currentTimeMillis() - b) + "ms");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		});
 	}
 
 	@Test
 	public void test() throws Exception {
-		Options options = new Options().bufferedBitmapType(BufferedImage.TYPE_INT_RGB);
 		final AtomicLong pixels = new AtomicLong();
 
 		long total = System.currentTimeMillis();
@@ -65,7 +66,7 @@ public class SmartCropTest {
 		bufferedImages.forEach((name, img) -> {
 			long b = System.currentTimeMillis();
 
-			CropResult result = SmartCrop.analyze(options, img);
+			CropResult result = SmartCrop.analyze(new Options(), img);
 
 			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
 			pixels.addAndGet(img.getWidth() * img.getHeight());
@@ -73,5 +74,14 @@ public class SmartCropTest {
 		});
 
 		System.out.println(((pixels.get() / ((System.currentTimeMillis() - total) / 1000f)) / 1000f / 1000f) + " MPixels/s");
+	}
+
+	private static BufferedImage createCrop(BufferedImage input, Crop crop) {
+		BufferedImage image = new BufferedImage(crop.width, crop.height, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = (Graphics2D) image.getGraphics();
+		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		g.drawImage(input, 0, 0, crop.width, crop.height, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
+		g.dispose();
+		return image;
 	}
 }

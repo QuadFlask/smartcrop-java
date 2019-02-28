@@ -1,6 +1,9 @@
 package com.github.quadflask.smartcrop;
 
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,22 +12,14 @@ import java.util.List;
  * Created by flask on 2015. 10. 30..
  */
 public class SmartCrop {
-	private Options options;
-	private int[] sample;
-
-	public SmartCrop() {
-		this(Options.DEFAULT);
-	}
-
-	public SmartCrop(Options options) {
-		this.options = options;
+	private SmartCrop() {
 	}
 
 	public static CropResult analyze(Options options, BufferedImage input) {
-		return new SmartCrop(options).analyze(input);
+		return new SmartCrop().doAnalyze(options, input);
 	}
 
-	public CropResult analyze(BufferedImage original) {
+	private CropResult doAnalyze(Options options, BufferedImage original) {
 		if (options.getAspect() != 0.0f) {
 			options.width(options.getAspect());
 			options.height(1.0f);
@@ -60,24 +55,24 @@ public class SmartCrop {
 		Image inputI = new Image(input);
 		Image outputI = new Image(input.getWidth(), input.getHeight());
 
-		prepareCie(inputI);
-		edgeDetect(inputI, outputI);
-		skinDetect(inputI, outputI);
-		saturationDetect(inputI, outputI);
+		int[] cie = generateCIE(inputI);
+		edgeDetect(inputI, outputI, cie);
+		skinDetect(options, inputI, outputI, cie);
+		saturationDetect(options, inputI, outputI, cie);
 		// applyBoosts()
 
-		BufferedImage scoreOutput = new BufferedImage(input.getWidth(), input.getHeight(), options.getBufferedBitmapType());
+		BufferedImage scoreOutput = new BufferedImage(input.getWidth(), input.getHeight(), BufferedImage.TYPE_INT_ARGB);
 		scoreOutput.setRGB(0, 0, input.getWidth(), input.getHeight(), outputI.getRGB(), 0, input.getWidth());
-		BufferedImage score = downSample(scoreOutput, options.getScoreDownSample());
+		BufferedImage score = downSample(options, scoreOutput);
 
 		Image scoreI = new Image(score);
 
 		float topScore = Float.NEGATIVE_INFINITY;
 		Crop topCrop = null;
-		List<Crop> crops = generateCrops(input.getWidth(), input.getHeight());
+		List<Crop> crops = generateCrops(options, input.getWidth(), input.getHeight());
 
 		for (Crop crop : crops) {
-			crop.score = score(scoreI, crop);
+			crop.score = score(options, scoreI, crop);
 			if (crop.score.total > topScore) {
 				topCrop = crop;
 				topScore = crop.score.total;
@@ -88,7 +83,7 @@ public class SmartCrop {
 			crop.height = (int) Math.floor(crop.height / prescale);
 		}
 
-		CropResult result = CropResult.newInstance(topCrop, crops, scoreOutput, createCrop(original, topCrop));
+		CropResult result = CropResult.newInstance(topCrop, crops, scoreOutput);
 
 		if (topCrop != null) {
 			Graphics graphics = scoreOutput.getGraphics();
@@ -100,13 +95,14 @@ public class SmartCrop {
 		return result;
 	}
 
-	public BufferedImage downSample(BufferedImage input, int factor) {
+	public BufferedImage downSample(Options options, BufferedImage input) {
+		int factor = options.getScoreDownSample();
 		int[] idata = input.getRGB(0, 0, input.getWidth(), input.getHeight(), null, 0, input.getWidth());
 		int iwidth = input.getWidth();
 		int width = input.getWidth() / factor;
 		int height = input.getHeight() / factor;
 
-		BufferedImage output = new BufferedImage(width, height, options.getBufferedBitmapType());
+		BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		int[] data = output.getRGB(0, 0, width, height, null, 0, width);
 		double ifactor2 = 1.0 / (factor * factor);
 		for (int y = 0; y < height; y++) {
@@ -144,14 +140,8 @@ public class SmartCrop {
 		return output;
 	}
 
-	public BufferedImage createCrop(BufferedImage input, Crop crop) {
-		BufferedImage image = new BufferedImage(crop.width, crop.height, options.getBufferedBitmapType());
-		image.getGraphics().drawImage(input, 0, 0, crop.width, crop.height, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
-		return image;
-	}
-
 	private BufferedImage createScaleDown(BufferedImage image, float ratio) {
-		BufferedImage scaled = new BufferedImage((int) (image.getWidth() * ratio), (int) (image.getHeight() * ratio), options.getBufferedBitmapType());
+		BufferedImage scaled = new BufferedImage((int) (image.getWidth() * ratio), (int) (image.getHeight() * ratio), BufferedImage.TYPE_INT_ARGB);
 
 		Graphics2D g = (Graphics2D) scaled.getGraphics();
 		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
@@ -161,7 +151,7 @@ public class SmartCrop {
 		return scaled;
 	}
 
-	private List<Crop> generateCrops(int width, int height) {
+	private List<Crop> generateCrops(Options options, int width, int height) {
 		int minDimension = Math.min(width, height);
 		int cropWidth = options.getCropWidth() == 0 ? minDimension : options.getCropWidth();
 		int cropHeight = options.getCropHeight() == 0 ? minDimension : options.getCropHeight();
@@ -179,7 +169,7 @@ public class SmartCrop {
 		return crops;
 	}
 
-	private Score score(Image output, Crop crop) {
+	private Score score(Options options, Image output, Crop crop) {
 		Score score = new Score();
 		int[] od = output.getRGB();
 		int downSample = options.getScoreDownSample();
@@ -191,7 +181,7 @@ public class SmartCrop {
 		for (int y = 0; y < outputHeightDownSample; y += downSample) {
 			for (int x = 0; x < outputWidthDownSample; x += downSample) {
 				int p = (int) (Math.floor(y * invDownSample) * outputWidth + Math.floor(x * invDownSample));
-				float importance = importance(crop, x, y);
+				float importance = importance(options, crop, x, y);
 				float detail = (od[p] >> 8 & 0xff) / 255f;
 				score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
 				score.detail += detail * importance;
@@ -202,9 +192,11 @@ public class SmartCrop {
 		return score;
 	}
 
-	private float importance(Crop crop, int x, int y) {
-		if (crop.x > x || x >= crop.x + crop.width || crop.y > y || y >= crop.y + crop.height)
+	private float importance(Options options, Crop crop, int x, int y) {
+		if (crop.x > x || x >= crop.x + crop.width || crop.y > y || y >= crop.y + crop.height) {
 			return options.getOutsideImportance();
+		}
+
 		float fx = (float) (x - crop.x) / crop.width;
 		float fy = (float) (y - crop.y) / crop.height;
 		float px = Math.abs(0.5f - fx) * 2;
@@ -244,9 +236,9 @@ public class SmartCrop {
 		}
 	}
 
-	private void prepareCie(Image i) {
+	private int[] generateCIE(Image i) {
 		int[] id = i.getRGB();
-		sample = new int[id.length];
+		int[] cie = new int[id.length];
 		int w = i.width;
 		int h = i.height;
 
@@ -254,12 +246,19 @@ public class SmartCrop {
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				p = y * w + x;
-				sample[p] = cie(id[p]);
+
+				int rgb = id[p];
+				int r = rgb >> 16 & 0xff;
+				int g = rgb >> 8 & 0xff;
+				int b = rgb & 0xff;
+				cie[p] = Math.min(0xff, (int) (0.5126f * b + 0.7152f * g + 0.0722f * r));
 			}
 		}
+
+		return cie;
 	}
 
-	private void edgeDetect(Image i, Image o) {
+	private void edgeDetect(Image i, Image o, int[] cie) {
 		int[] od = o.getRGB();
 		int w = i.width;
 		int h = i.height;
@@ -270,13 +269,13 @@ public class SmartCrop {
 				p = y * w + x;
 				int lightness;
 				if (x == 0 || x >= w - 1 || y == 0 || y >= h - 1) {
-					lightness = sample[p];
+					lightness = cie[p];
 				} else {
-					lightness = sample[p] * 4 -
-								sample[p - w] -
-								sample[p - 1] -
-								sample[p + 1] -
-								sample[p + w]
+					lightness = cie[p] * 4 -
+								cie[p - w] -
+								cie[p - 1] -
+								cie[p + 1] -
+								cie[p + w]
 					;
 				}
 
@@ -285,7 +284,7 @@ public class SmartCrop {
 		}
 	}
 
-	private void skinDetect(Image i, Image o) {
+	private void skinDetect(Options options, Image i, Image o, int[] cie) {
 		int[] id = i.getRGB();
 		int[] od = o.getRGB();
 		int w = i.width;
@@ -295,8 +294,8 @@ public class SmartCrop {
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				int p = y * w + x;
-				float lightness = sample[p] / 255f;
-				float skin = calcSkinColor(id[p]);
+				float lightness = cie[p] / 255f;
+				float skin = calcSkinColor(id[p], options.getSkinColor());
 				if (skin > options.getSkinThreshold() && lightness >= options.getSkinBrightnessMin() && lightness <= options.getSkinBrightnessMax()) {
 					od[p] = clamp((int) ((skin - options.getSkinThreshold()) * invSkinThreshold)) << 16 | (od[p] & 0xff00ffff);
 				} else {
@@ -306,7 +305,7 @@ public class SmartCrop {
 		}
 	}
 
-	private void saturationDetect(Image i, Image o) {
+	private void saturationDetect(Options options, Image i, Image o, int[] cie) {
 		int[] id = i.getRGB();
 		int[] od = o.getRGB();
 		int w = i.width;
@@ -316,7 +315,7 @@ public class SmartCrop {
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				int p = y * w + x;
-				float lightness = sample[p] / 255f;
+				float lightness = cie[p] / 255f;
 				float sat = saturation(id[p]);
 				if (sat > options.getSaturationThreshold() && lightness >= options.getSaturationBrightnessMin() && lightness <= options.getSaturationBrightnessMax()) {
 					od[p] = clamp((int) ((sat - options.getSaturationThreshold()) * invSaturationThreshold)) | (od[p] & 0xffffff00);
@@ -327,27 +326,20 @@ public class SmartCrop {
 		}
 	}
 
-	private float calcSkinColor(int rgb) {
+	private float calcSkinColor(int rgb, float[] skinColor) {
 		int r = rgb >> 16 & 0xff;
 		int g = rgb >> 8 & 0xff;
 		int b = rgb & 0xff;
 
 		float mag = (float) Math.sqrt(r * r + g * g + b * b);
-		float rd = (r / mag - options.getSkinColor()[0]);
-		float gd = (g / mag - options.getSkinColor()[1]);
-		float bd = (b / mag - options.getSkinColor()[2]);
+		float rd = (r / mag - skinColor[0]);
+		float gd = (g / mag - skinColor[1]);
+		float bd = (b / mag - skinColor[2]);
 		return 1f - (float) Math.sqrt(rd * rd + gd * gd + bd * bd);
 	}
 
 	private int clamp(int v) {
 		return Math.max(0, Math.min(v, 0xff));
-	}
-
-	private int cie(int rgb) {
-		int r = rgb >> 16 & 0xff;
-		int g = rgb >> 8 & 0xff;
-		int b = rgb & 0xff;
-		return Math.min(0xff, (int) (0.5126f * b + 0.7152f * g + 0.0722f * r));
 	}
 
 	private float saturation(int rgb) {
