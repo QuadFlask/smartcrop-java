@@ -12,21 +12,54 @@ import java.util.List;
  * Created by flask on 2015. 10. 30..
  */
 public class SmartCrop {
+	private float prescale = 1.0f;
+	private BufferedImage input;
+	private BufferedImage scaledInput;
+	private BufferedImage score;
+	private BufferedImage scoreOutput;
+
 	private SmartCrop() {
 	}
 
 	public static CropResult analyze(Options options, BufferedImage input) {
-		return new SmartCrop().doAnalyze(options, input);
+		return new SmartCrop().doAnalyze(options, input).generateCrops(options);
 	}
 
-	private CropResult doAnalyze(Options options, BufferedImage original) {
-		if (options.getAspect() != 0.0f) {
+	private SmartCrop doAnalyze(Options options, BufferedImage original) {
+		input = original;
+		scaledInput = original;
+
+		if (options.isPrescale()) {
+			prescale = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
+			if (prescale < 1.0f) {
+				scaledInput = createScaleDown(original, prescale);
+			} else {
+				prescale = 1.0f;
+			}
+		}
+
+		// analyse(options, input)
+		Image inputI = new Image(scaledInput);
+		Image outputI = new Image(scaledInput.getWidth(), scaledInput.getHeight());
+
+		int[] cie = generateCIE(inputI);
+		edgeDetect(inputI, outputI, cie);
+		skinDetect(options, inputI, outputI, cie);
+		saturationDetect(options, inputI, outputI, cie);
+		// applyBoosts()
+
+		scoreOutput = new BufferedImage(scaledInput.getWidth(), scaledInput.getHeight(), BufferedImage.TYPE_INT_ARGB);
+		scoreOutput.setRGB(0, 0, scaledInput.getWidth(), scaledInput.getHeight(), outputI.getRGB(), 0, scaledInput.getWidth());
+		score = downSample(options, scoreOutput);
+
+		return this;
+	}
+
+	private CropResult generateCrops(Options options) {
+		if (options.getAspect() != 0.0) {
 			options.width(options.getAspect());
 			options.height(1.0f);
 		}
-
-		float prescale = 1.0f;
-		BufferedImage input = original;
 
 		// calculate desired crop dimensions based on the image size
 		if (options.getWidth() != 0.0f && options.getHeight() != 0.0f) {
@@ -38,38 +71,18 @@ public class SmartCrop {
 			// don't set minscale smaller than 1/scale
 			// -> don't pick crops that need upscaling
 			options.minScale(Math.min(options.getMaxScale(), Math.max(1.0f / scale, options.getMinScale())));
-
-			if (options.isPrescale()) {
-				prescale = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
-				if (prescale < 1.0) {
-					input = createScaleDown(input, prescale);
-					options.cropWidth((int) (options.getCropWidth() * prescale));
-					options.cropHeight((int) (options.getCropHeight() * prescale));
-				} else {
-					prescale = 1.0f;
-				}
-			}
 		}
 
-		// analyse(options, input)
-		Image inputI = new Image(input);
-		Image outputI = new Image(input.getWidth(), input.getHeight());
-
-		int[] cie = generateCIE(inputI);
-		edgeDetect(inputI, outputI, cie);
-		skinDetect(options, inputI, outputI, cie);
-		saturationDetect(options, inputI, outputI, cie);
-		// applyBoosts()
-
-		BufferedImage scoreOutput = new BufferedImage(input.getWidth(), input.getHeight(), BufferedImage.TYPE_INT_ARGB);
-		scoreOutput.setRGB(0, 0, input.getWidth(), input.getHeight(), outputI.getRGB(), 0, input.getWidth());
-		BufferedImage score = downSample(options, scoreOutput);
+		if (options.isPrescale()) {
+			options.cropWidth((int) (options.getCropWidth() * prescale));
+			options.cropHeight((int) (options.getCropHeight() * prescale));
+		}
 
 		Image scoreI = new Image(score);
 
 		float topScore = Float.NEGATIVE_INFINITY;
 		Crop topCrop = null;
-		List<Crop> crops = generateCrops(options, input.getWidth(), input.getHeight());
+		List<Crop> crops = generateCrops(options, scaledInput.getWidth(), scaledInput.getHeight());
 
 		for (Crop crop : crops) {
 			crop.score = score(options, scoreI, crop);
