@@ -7,7 +7,6 @@ import org.junit.Test;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 
@@ -21,8 +20,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static org.opencv.objdetect.Objdetect.CASCADE_SCALE_IMAGE;
 
 /**
  * Created by flask on 2015. 10. 27..
@@ -54,7 +51,7 @@ public class SmartCropTest {
 						System.out.println("Detected " + faces.size() + " faces");
 						String baseName = baseName(file.getName());
 
-						Options options = new Options();
+						Options options = new Options().prescale(true).scoreDownSample(1);
 						SmartCrop smartCrop = SmartCrop.analyze(options.boost(faces), input);
 
 						createCrop(input, smartCrop, options.aspect(1.0f), baseName + "_11", faces);
@@ -96,22 +93,23 @@ public class SmartCropTest {
 	}
 
 	private List<Boost> detectFaces(BufferedImage input) {
-		byte[] data = ((DataBufferByte) input.getRaster().getDataBuffer()).getData();
+		int type = input.getType();
+		if (type != BufferedImage.TYPE_3BYTE_BGR) {
+			throw new RuntimeException("Unsupported image type: " + type);
+		}
+
 		Mat frame = new Mat(input.getHeight(), input.getWidth(), CvType.CV_8UC3);
+		byte[] data = ((DataBufferByte) input.getRaster().getDataBuffer()).getData();
 		frame.put(0, 0, data);
 
-		// convert the frame to gray scale
 		Mat grayFrame = new Mat();
-		Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_RGB2GRAY);
+		Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
 		// equalize the frame histogram to improve the result
-		Imgproc.equalizeHist(grayFrame, grayFrame);
-
-		int maxSize = Math.max(input.getWidth(), input.getHeight());
-		int minFaceSize = (int) (maxSize * 0.05);
+		// Imgproc.equalizeHist(grayFrame, grayFrame);
 
 		// detect faces
 		MatOfRect faces = new MatOfRect();
-		faceCascade.detectMultiScale(grayFrame, faces, 1.1, 2, CASCADE_SCALE_IMAGE, new Size(minFaceSize, minFaceSize), new Size(maxSize, maxSize));
+		faceCascade.detectMultiScale(grayFrame, faces, 1.05, 3);
 
 		return faces.toList().stream().map(face -> {
 			Boost boost = new Boost();

@@ -36,7 +36,7 @@ public class Options {
 	private List<Boost> boost = Collections.emptyList();
 	private float boostWeight = 100.0f;
 	private boolean ruleOfThirds = true;
-	private boolean prescale = true;
+	private boolean prescale = false;
 
 	public float getWidth() {
 		return width;
