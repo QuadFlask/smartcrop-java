@@ -1,25 +1,30 @@
 package com.github.quadflask.smartcrop;
 
 import org.bytedeco.javacpp.Loader;
+import org.bytedeco.javacpp.indexer.FloatIndexer;
+import org.bytedeco.javacpp.opencv_core.Mat;
+import org.bytedeco.javacpp.opencv_core.Scalar;
+import org.bytedeco.javacpp.opencv_core.Size;
+import org.bytedeco.javacpp.opencv_dnn;
 import org.bytedeco.javacpp.opencv_java;
+import org.bytedeco.javacv.Java2DFrameUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfRect;
-import org.opencv.imgproc.Imgproc;
-import org.opencv.objdetect.CascadeClassifier;
 
-import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
+
+import static org.bytedeco.javacpp.opencv_core.CV_32F;
+import static org.bytedeco.javacpp.opencv_dnn.blobFromImage;
+import static org.bytedeco.javacpp.opencv_dnn.readNetFromCaffe;
+import static org.bytedeco.javacpp.opencv_imgproc.resize;
 
 /**
  * Created by flask on 2015. 10. 27..
@@ -30,14 +35,13 @@ public class SmartCropTest {
 	static String debugPath = "src/test/resources/debug";
 	static String resultPath = "src/test/resources/result";
 
-	private static CascadeClassifier faceCascade;
+	private static opencv_dnn.Net faceNet;
 
 	@BeforeClass
 	public static void setUp() {
 		Loader.load(opencv_java.class);
 
-		faceCascade = new CascadeClassifier();
-		faceCascade.load("src/test/resources/haarcascade_frontalface_alt.xml");
+		faceNet = readNetFromCaffe("src/test/resources/deploy.prototxt.txt", "src/test/resources/res10_300x300_ssd_iter_140000.caffemodel");
 	}
 
 	@Test
@@ -93,32 +97,44 @@ public class SmartCropTest {
 	}
 
 	private List<Boost> detectFaces(BufferedImage input) {
-		int type = input.getType();
-		if (type != BufferedImage.TYPE_3BYTE_BGR) {
-			throw new RuntimeException("Unsupported image type: " + type);
+		Mat frame = Java2DFrameUtils.toMat(input);
+
+		resize(frame, frame, new Size(300, 300));
+		Mat blob = blobFromImage(frame, 1.0, new Size(300, 300), new Scalar(104.0, 177.0, 123.0, 0.0), false, false, CV_32F);
+
+		faceNet.setInput(blob);
+		Mat output = faceNet.forward();
+
+		Mat ne = new Mat(new Size(output.size(3), output.size(2)), CV_32F, output.ptr(0, 0));
+		FloatIndexer srcIndexer = ne.createIndexer();
+
+		List<Boost> faces = new ArrayList<>();
+		for (int i = 0; i < output.size(3); i++) {
+			float confidence = srcIndexer.get(i, 2);
+
+			if (confidence > .6f) {
+				float f1 = srcIndexer.get(i, 3);
+				float f2 = srcIndexer.get(i, 4);
+				float f3 = srcIndexer.get(i, 5);
+				float f4 = srcIndexer.get(i, 6);
+
+				Boost face = new Boost();
+				face.x = (int) (f1 * input.getWidth());
+				face.y = (int) (f2 * input.getHeight());
+				face.width = (int) ((f3 - f1) * input.getWidth());
+				face.height = (int) ((f4 - f2) * input.getHeight());
+				face.weight = 1.0f;
+				faces.add(face);
+			}
 		}
 
-		Mat frame = new Mat(input.getHeight(), input.getWidth(), CvType.CV_8UC3);
-		byte[] data = ((DataBufferByte) input.getRaster().getDataBuffer()).getData();
-		frame.put(0, 0, data);
+		srcIndexer.release();
+		ne.release();
+		output.release();
+		blob.release();
+		frame.release();
 
-		Mat grayFrame = new Mat();
-		Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
-		// equalize the frame histogram to improve the result
-		// Imgproc.equalizeHist(grayFrame, grayFrame);
-
-		// detect faces
-		MatOfRect faces = new MatOfRect();
-		faceCascade.detectMultiScale(grayFrame, faces, 1.05, 3);
-
-		return faces.toList().stream().map(face -> {
-			Boost boost = new Boost();
-			boost.x = face.x;
-			boost.y = face.y;
-			boost.width = face.width;
-			boost.height = face.height;
-			boost.weight = 1.0f;
-			return boost;
-		}).collect(Collectors.toList());
+		return faces;
 	}
+
 }
