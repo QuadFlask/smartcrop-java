@@ -3,6 +3,7 @@ package com.github.quadflask.smartcrop;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.image.BandCombineOp;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,11 +103,20 @@ public class SmartCrop {
 			crop.height = (int) Math.floor(crop.height / prescale);
 		}
 
-		BufferedImage debugOutput = scoreOutput;
+		BufferedImage debugOutput = new BufferedImage(scoreOutput.getWidth(), scoreOutput.getHeight(), BufferedImage.TYPE_INT_RGB);
+		// Drop alpha channel from debug output
+		BandCombineOp filterAlpha = new BandCombineOp(
+				// RGBA -> RGB
+				new float[][] {
+						{1.0f, 0.0f, 0.0f, 0.0f},
+						{0.0f, 1.0f, 0.0f, 0.0f},
+						{0.0f, 0.0f, 1.0f, 0.0f}
+				}, null
+		);
+		filterAlpha.filter(scoreOutput.getRaster(), debugOutput.getRaster());
+
 		if (topCrop != null) {
-			debugOutput = new BufferedImage(scoreOutput.getWidth(), scoreOutput.getHeight(), scoreOutput.getType());
 			Graphics2D g = (Graphics2D) debugOutput.getGraphics();
-			g.drawImage(scoreOutput, 0, 0, debugOutput.getWidth(), debugOutput.getHeight(), 0, 0, scoreOutput.getWidth(), scoreOutput.getHeight(), null);
 			g.setColor(Color.cyan);
 			g.drawRect((int) (topCrop.x * prescale), (int) (topCrop.y * prescale), (int) (topCrop.width * prescale), (int) (topCrop.height * prescale));
 			g.dispose();
@@ -135,10 +145,10 @@ public class SmartCrop {
 					for (int u = 0; u < factor; u++) {
 						int rgb = idata[(y * factor + v) * iwidth + (x * factor + u)];
 
+						a += rgb >> 24 & 0xff;
 						r += rgb >> 16 & 0xff;
 						g += rgb >> 8 & 0xff;
 						b += rgb & 0xff;
-						a += rgb >> 24 & 0xff;
 
 						mr = Math.max(mr, rgb >> 16 & 0xff);
 						mg = Math.max(mg, rgb >> 8 & 0xff);
@@ -149,10 +159,10 @@ public class SmartCrop {
 
 				// this is some funky magic to preserve detail a bit more for
 				// skin (r) and detail (g). Saturation (b) does not get this boost.
-				data[i] = Math.min(255, (int) (r * ifactor2 * 0.5 + mr * 0.5)) << 16 |
+				data[i] = Math.min(255, (int) (a * ifactor2)) << 24 |
+						  Math.min(255, (int) (r * ifactor2 * 0.5 + mr * 0.5)) << 16 |
 						  Math.min(255, (int) (g * ifactor2 * 0.7 + mg * 0.3)) << 8 |
-						  Math.min(255, (int) (b * ifactor2)) |
-						  Math.min(255, (int) (a * ifactor2)) << 24;
+						  Math.min(255, (int) (b * ifactor2));
 			}
 		}
 
@@ -209,7 +219,12 @@ public class SmartCrop {
 				score.boost += (od[p] >> 24 & 0xff) / 255f * importance;
 			}
 		}
-		score.total = (score.detail * options.getDetailWeight() + score.skin * options.getSkinWeight() + score.saturation * options.getSaturationWeight() + score.boost * options.getBoostWeight()) / (crop.width * crop.height);
+		score.total = (
+				score.detail * options.getDetailWeight() +
+				score.skin * options.getSkinWeight() +
+				score.saturation * options.getSaturationWeight() +
+				score.boost * options.getBoostWeight()
+		) / (crop.width * crop.height);
 		return score;
 	}
 
@@ -243,7 +258,7 @@ public class SmartCrop {
 			this.height = height;
 			this.data = new int[width * height];
 			for (int i = 0; i < this.data.length; i++)
-				data[i] = 0xff000000;
+				data[i] = 0x00000000;
 		}
 
 		public Image(BufferedImage bufferedImage) {
@@ -376,7 +391,7 @@ public class SmartCrop {
 				for (int x = x0; x < x1; x++) {
 					int i = y * w + x;
 					int v = od[i] >> 24 & 0xff;
-					od[i] |= clamp(v + weight) << 24 & 0x00ffffff;
+					od[i] = clamp(v + weight) << 24 | (od[i] & 0x00ffffff);
 				}
 			}
 		});
