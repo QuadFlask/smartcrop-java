@@ -1,15 +1,19 @@
 package com.github.quadflask.smartcrop;
 
 import org.bytedeco.javacpp.Loader;
+import org.bytedeco.javacpp.opencv_core.Mat;
+import org.bytedeco.javacpp.opencv_core.Rect;
+import org.bytedeco.javacpp.opencv_core.RectVector;
+
 import org.bytedeco.javacpp.opencv_java;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfRect;
-import org.opencv.imgproc.Imgproc;
-import org.opencv.objdetect.CascadeClassifier;
+import org.bytedeco.javacpp.opencv_objdetect.CascadeClassifier;
+import org.bytedeco.javacv.Java2DFrameUtils;
 
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
+
+import static org.bytedeco.javacpp.opencv_imgproc.COLOR_BGR2GRAY;
+import static org.bytedeco.javacpp.opencv_imgproc.cvtColor;
+import static org.bytedeco.javacpp.opencv_imgproc.equalizeHist;
 
 public class HaarCascadeFaceDetector implements FaceDetector {
 
@@ -17,7 +21,7 @@ public class HaarCascadeFaceDetector implements FaceDetector {
         Loader.load(opencv_java.class);
 
         CascadeClassifier classifier = new CascadeClassifier();
-        classifier.load("src/test/resources/haarcascade_frontalface_default.xml");
+        classifier.load("src/test/resources/haarcascade_frontalface_alt2.xml");
         faceCascade = classifier;
     }
 
@@ -25,25 +29,23 @@ public class HaarCascadeFaceDetector implements FaceDetector {
 
     @Override
     public void detect(BufferedImage input, FaceConsumer consumer) {
-        int type = input.getType();
-        if (type != BufferedImage.TYPE_3BYTE_BGR) {
-            throw new RuntimeException("Unsupported image type: " + type);
-        }
-
-        Mat frame = new Mat(input.getHeight(), input.getWidth(), CvType.CV_8UC3);
-        byte[] data = ((DataBufferByte) input.getRaster().getDataBuffer()).getData();
-        frame.put(0, 0, data);
+        Mat frame = Java2DFrameUtils.toMat(input);
 
         Mat grayFrame = new Mat();
-        Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
+        cvtColor(frame, grayFrame, COLOR_BGR2GRAY);
+        equalizeHist(grayFrame, grayFrame);
 
         // detect faces
-        MatOfRect faces = new MatOfRect();
-        faceCascade.detectMultiScale(grayFrame, faces, 1.1, 5);
+        RectVector faces = new RectVector();
+        faceCascade.detectMultiScale(grayFrame, faces);
 
-        faces.toList().forEach(face -> {
-            consumer.accept(face.x, face.y, face.width, face.height, 1.0f);
-        });
+        for (long i = 0; i < faces.size(); i++) {
+            Rect face = faces.get(i);
+            consumer.accept(face.x(), face.y(), face.width(), face.height(), 1.0f);
+        }
+
+        grayFrame.release();
+        frame.release();
     }
 
 }
