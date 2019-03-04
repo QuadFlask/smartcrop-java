@@ -21,7 +21,7 @@ public class SmartCropTest {
 	static String debugPath = "src/test/resources/debug";
 	static String resultPath = "src/test/resources/result";
 
-	private DnnFaceDetector faceDetector = new DnnFaceDetector();
+	private FaceDetector faceDetector = new HaarCascadeFaceDetector();
 
 	@Test
 	public void test() throws Exception {

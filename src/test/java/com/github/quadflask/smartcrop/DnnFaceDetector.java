@@ -14,7 +14,7 @@ import static org.bytedeco.javacpp.opencv_dnn.blobFromImage;
 import static org.bytedeco.javacpp.opencv_dnn.readNetFromCaffe;
 import static org.bytedeco.javacpp.opencv_imgproc.resize;
 
-public class DnnFaceDetector {
+public class DnnFaceDetector implements FaceDetector {
 
     static {
         Loader.load(opencv_java.class);
@@ -24,6 +24,7 @@ public class DnnFaceDetector {
 
     private static opencv_dnn.Net faceNet;
 
+    @Override
     public void detect(BufferedImage input, FaceConsumer consumer) {
         opencv_core.Mat frame = Java2DFrameUtils.toMat(input);
 
@@ -59,10 +60,6 @@ public class DnnFaceDetector {
         output.release();
         blob.release();
         frame.release();
-    }
-
-    public interface FaceConsumer {
-        void accept(int x, int y, int width, int height, float confidence);
     }
 
 }
