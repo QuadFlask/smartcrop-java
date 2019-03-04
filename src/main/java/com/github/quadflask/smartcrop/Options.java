@@ -12,7 +12,7 @@ public class Options {
 	private int cropWidth = 100;
 	private int cropHeight = 100;
 	private float detailWeight = .2f;
-	private float[] skinColor = {0.7f, 0.57f, 0.44f};
+	private float[] skinColor = {0.78f, 0.57f, 0.44f};
 	private float skinBias = .01f;
 	private float skinBrightnessMin = 0.2f;
 	private float skinBrightnessMax = 1.0f;
@@ -22,7 +22,7 @@ public class Options {
 	private float saturationBrightnessMax = 0.9f;
 	private float saturationThreshold = 0.4f;
 	private float saturationBias = 0.2f;
-	private float saturationWeight = 0.3f;
+	private float saturationWeight = 0.1f;
 	// step * minscale rounded down to the next power of two should be good
 	private int scoreDownSample = 8;
 	public int step = 8;
@@ -34,7 +34,7 @@ public class Options {
 	private float outsideImportance = -.5f;
 	private float prescale = 1f;
 	private float boostWeight = 100.0f;
-	private boolean ruleOfThirds = false;
+	private boolean ruleOfThirds = true;
 	private int bufferedBitmapType = BufferedImage.TYPE_INT_ARGB;
 	private Crop[] boost = null;
 

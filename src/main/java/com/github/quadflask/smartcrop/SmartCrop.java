@@ -26,8 +26,6 @@ public class SmartCrop {
 
     public CropResult analyze(BufferedImage input) {
         Image inputI = new Image(input);
-
-
         Image outputI = new Image(input.getWidth(), input.getHeight());
 
         prepareCie(inputI);
@@ -61,30 +59,6 @@ public class SmartCrop {
             crop.width *= options.getScoreDownSample();
             crop.height *= options.getScoreDownSample();
 
-
-            if (options.getBoost() != null && options.getBoost().length == 1) {
-                Crop r = options.getBoost()[0];
-
-                if (crop.x > r.x) {
-                    crop.x = r.x;
-                }
-
-                if (crop.width < r.width) {
-                    crop.width = r.width;
-                }
-
-                if (crop.y > r.y) {
-                    crop.y = r.y;
-                } else if ((crop.y + crop.height) < (r.y + r.height)) {
-                    crop.height = crop.height + (r.y + r.height - crop.y - crop.height) * options.getScoreDownSample();
-                }
-
-                if (crop.height < r.height) {
-                    crop.y = r.height;
-                }
-            }
-
-
         }
 
         CropResult result = CropResult.newInstance(topCrop, crops, output, createCrop(input, topCrop));
@@ -94,21 +68,31 @@ public class SmartCrop {
             if (topCrop != null)
                 graphics.drawRect(topCrop.x, topCrop.y, topCrop.width, topCrop.height);
 
-            if (options.getBoost().length > 0) {
+
+            if (options.getBoost() != null && options.getBoost().length > 0) {
                 for (Crop r : options.getBoost()) {
                     graphics.drawRect(r.x, r.y, r.width, r.height);
                 }
             }
+
+            Graphics graphics1 = output.getGraphics();
+            graphics1.setColor(Color.MAGENTA);
+            for(Crop r: crops){
+                graphics.drawRect(r.x, r.y, r.width, r.height);
+            }
+
         }
 
         return result;
     }
 
     public BufferedImage createCrop(BufferedImage input, Crop crop) {
-        int tw = options.getCropWidth();
-        int th = options.getCropHeight();
+
+        int tw = crop.width;
+        int th = crop.height;
         BufferedImage image = new BufferedImage(tw, th, options.getBufferedBitmapType());
         image.getGraphics().drawImage(input, 0, 0, tw, th, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
+
         return image;
     }
 
@@ -123,7 +107,39 @@ public class SmartCrop {
         int width = image.width;
         int height = image.height;
         int minDimension = Math.min(width, height);
+        int cropWidth = options.getCropWidth() > minDimension ? minDimension : options.getCropWidth();
+        int cropHeight = options.getCropHeight() > minDimension ? minDimension : options.getCropHeight();
 
+
+        if (options.getBoost() != null && options.getBoost().length > 0) {
+            for (Crop r : options.getBoost()) {
+                int tx = Math.min(r.x, (width * options.getScoreDownSample() - r.x - r.width));
+                int ty = Math.min(r.y, (height * options.getScoreDownSample() - r.y - r.height));
+                int ttx = Math.min(tx, ty);
+                crops.add(new Crop(
+                        (r.x - ttx) / options.getScoreDownSample(),
+                        (r.y - ty) / options.getScoreDownSample(),
+                        Math.round((r.width + ttx * 2) / options.getScoreDownSample()),
+                        Math.round((r.height + ty * 2) / options.getScoreDownSample())));
+            }
+        }
+
+            for (float scale = options.getMaxScale();
+                 scale >= options.getMinScale();
+                 scale -= options.getScaleStep()) {
+
+                for (int y = 0; y + cropHeight * scale <= height; y += options.getScoreDownSample()) {
+                    for (int x = 0; x + cropWidth * scale <= width; x += options.getScoreDownSample()) {
+                        crops.add(new Crop(
+                                x,
+                                y,
+                                (int) (cropWidth * scale),
+                                (int) (cropHeight * scale)));
+                    }
+                }
+            }
+
+//        else {
         for (float scale = options.getMaxScale();
              scale >= options.getMinScale();
              scale -= options.getScaleStep()) {
@@ -138,37 +154,82 @@ public class SmartCrop {
                 }
             }
         }
+//        }
+
+
         return crops;
     }
 
     private Score score(Image output, Crop crop) {
-        Score score = new Score();
+
+        Score result = new Score();
         int[] od = output.getRGB();
-        int width = output.width * options.getScoreDownSample();
-        int height = output.height * options.getScoreDownSample();
+        int downSample = options.getScoreDownSample();
+        float invDownSample = 1f / downSample;
+        int outputHeightDownSample = output.height * downSample;
+        int outputWidthDownSample = output.width * downSample;
+        int outputWidth = output.width;
 
-        float invDownSample = 1 / options.getScoreDownSample();
-
-        for (int y = 0; y < height; y += options.getScoreDownSample()) {
-            for (int x = 0; x < width; x += options.getScoreDownSample()) {
-                int p = Math.round(y * invDownSample * width + x * invDownSample + 0.5f) * 4;
-                float importance = importance(crop, x, y);
-
-                float detail = (od[p] >> 8 & 0xff) / 255f;
-                score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
-                score.detail += detail * importance;
-                score.saturation += (od[p] & 0xff) / 255f * (detail + options.getSaturationBias()) * importance;
-                score.boost += (od[p] >> 24 & 0xff) / 255f * importance;
+//        for (int y = 0; y < output.height - downSample; y += downSample) {
+//            for (int x = 0; x < output.width - downSample; x += downSample) {
+//                int p = y * outputWidth + x;
+//                float i = importance(crop, x, y);
+//                float detail = getGreen(od[p]) / 255f;
+//                result.skin += getRed(od[p]) / 255f * (detail + options.getSkinBias()) * i;
+//                result.detail += detail * i;
+//                result.saturation += getBlue(od[p]) / 255f * (detail + options.getSaturationBias()) * i;
+//                result.boost += getAlpha(od[p]) / 255f * i;
+//            }
+//        }
+//
+        for (int y = 0; y < outputHeightDownSample; y += downSample) {
+            for (int x = 0; x < outputWidthDownSample; x += downSample) {
+                int p = Math.round(y * invDownSample * outputWidth + x * invDownSample);
+                float i = importance(crop, x, y);
+                float detail = getGreen(od[p]) / 255f;
+                result.skin += getRed(od[p]) / 255f * (detail + options.getSkinBias()) * i;
+                result.detail += detail * i;
+                result.saturation += getBlue(od[p]) / 255f * (detail + options.getSaturationBias()) * i;
+                result.boost += getAlpha(od[p]) / 255f * i;
             }
         }
 
 
-        score.total = (score.detail * options.getDetailWeight()
-                + score.skin * options.getSkinWeight()
-                + score.saturation * options.getSaturationWeight()
-                + score.boost * options.getBoostWeight())
-                / crop.width / crop.height;
-        return score;
+        /**
+         Score score = new Score();
+         int[] od = output.getRGB();
+         int width = output.width ;
+         //        int width = output.width * options.getScoreDownSample();
+         int height = output.height;
+         //        int height = output.height * options.getScoreDownSample();
+
+         //        float invDownSample = 1f / options.getScoreDownSample();
+         float invDownSample = 1f ;
+         System.out.println(od.length + " "+ (Math.round((height-1f) * invDownSample * output.width + (width-1f) * invDownSample)));
+         for (int y = 0; y < height; y += options.getScoreDownSample()) {
+         for (int x = 0; x < width; x += options.getScoreDownSample()) {
+         //                int p = Math.round(y * invDownSample * output.width + x * invDownSample) * 4;
+         int p = Math.round(y * invDownSample * width + x * invDownSample);
+
+         float importance = importance(crop, x, y);
+         //                if (importance > 0){
+         //                    System.out.println(importance);
+         //                }
+         float detail = (od[p] >> 8 & 0xff) / 255f;
+         score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
+         score.detail += detail * importance;
+         score.saturation += (od[p] & 0xff) / 255f * (detail + options.getSaturationBias()) * importance;
+         score.boost += (od[p] >> 24 & 0xff) / 255f * importance;
+         }
+         }
+         */
+
+        result.total = (result.detail * options.getDetailWeight()
+                + result.skin * options.getSkinWeight()
+                + result.saturation * options.getSaturationWeight()
+                + result.boost * options.getBoostWeight())
+                / (crop.width + crop.height);
+        return result;
     }
 
     private float importance(Crop crop, int x, int y) {
@@ -178,19 +239,20 @@ public class SmartCrop {
                 || y >= crop.y + crop.height)
             return options.getOutsideImportance();
 
-        float fx = (float) (x - crop.x) / crop.width;
-        float fy = (float) (y - crop.y) / crop.height;
+        float fx = (0.0f + x - crop.x) / crop.width;
+        float fy = (0.0f + y - crop.y) / crop.height;
         float px = Math.abs(0.5f - fx) * 2;
         float py = Math.abs(0.5f - fy) * 2;
         // distance from edg;
-        float dx = Math.max(px - 1.0f + options.getEdgeRadius(), 0);
-        float dy = Math.max(py - 1.0f + options.getEdgeRadius(), 0);
+        float dx = Math.max(px - 1.0f + options.getEdgeRadius(), 0f);
+        float dy = Math.max(py - 1.0f + options.getEdgeRadius(), 0f);
         float d = (dx * dx + dy * dy) * options.getEdgeWeight();
-        d += (float) (1.4142135f - Math.sqrt(px * px + py * py));
+//        float s = (float) (1.4142135f - Math.sqrt(px * px + py * py));
+        float s = (float) (1.41f - Math.sqrt(px * px + py * py));
         if (options.isRuleOfThirds()) {
-            d += (Math.max(0, d + 0.5f) * 1.2f) * (thirds(px) + thirds(py));
+            s += (Math.max(0f, s + d + 0.5f) * 1.2f) * (thirds(px) + thirds(py));
         }
-        return d;
+        return s + d;
     }
 
     static class Image {
@@ -242,6 +304,7 @@ public class SmartCrop {
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 p = y * w + x;
+
                 if (x == 0 || x >= w - 1 || y == 0 || y >= h - 1) {
                     lightness = 0;
                 } else {
@@ -253,8 +316,7 @@ public class SmartCrop {
                             - cd[p + 1]
                             - cd[p + w - 1]
                             - cd[p + w]
-                            - cd[p + w + 1]
-                    ;
+                            - cd[p + w + 1];
                 }
 
                 od[p] = clamp(lightness) << 8 | (od[p] & 0xffff00ff);
@@ -274,7 +336,7 @@ public class SmartCrop {
                 int p = y * w + x;
                 float lightness = cd[p] / 255f;
                 float skin = calcSkinColor(id[p]);
-                if (skin > options.getSkinThreshold() && lightness >= options.getSkinBrightnessMin() && lightness <= options.getSkinBrightnessMax()) {
+                if (skin > options.getSkinThreshold() && (lightness >= options.getSkinBrightnessMin() && lightness <= options.getSkinBrightnessMax())) {
                     od[p] = ((Math.round((skin - options.getSkinThreshold()) * invSkinThreshold)) & 0xff) << 16 | (od[p] & 0xff00ffff);
                 } else {
                     od[p] &= 0xff00ffff;
@@ -309,8 +371,7 @@ public class SmartCrop {
         if (options.getBoost() == null || options.getBoost().length < 1) return;
         int[] od = o.data;
         for (int i = 0; i < o.width; i++) {
-//            od[i] = (0 << 24) | (od[i] & 0xffffff);
-            od[i] &= 0xffffff00;
+            od[i] = setAlpha(od[i], 0);
         }
 
         for (int i = 0; i < options.getBoost().length; i++) {
@@ -329,8 +390,9 @@ public class SmartCrop {
         for (int y = y0; y < y1; y++) {
             for (int x = x0; x < x1; x++) {
                 int p = (y * w + x);
-                od[p] = (255 << 24) | (od[p] & 0xffffff);
-//                od[p] = (255<<24) | (255<<16) | (255<<8) | 255;
+                od[p] = setAlpha(od[p], getAlpha(od[p]) + 255);
+                od[p] = setGreen(od[p], 255);
+//                od[p] = cie(od[p]);
             }
         }
     }
@@ -353,10 +415,11 @@ public class SmartCrop {
     }
 
     private int cie(int rgb) {
-        int r = rgb >> 16 & 0xff;
-        int g = rgb >> 8 & 0xff;
-        int b = rgb & 0xff;
+        int r = getRed(rgb);
+        int g = getGreen(rgb);
+        int b = getBlue(rgb);
         return Math.min(0xff, (int) (0.2126f * b + 0.7152f * g + 0.0722f * r + .5f));
+//        return Math.min(0xff, (int) (0.5126f * b + 0.7152f * g + 0.0722f * r + .5f));
     }
 
     private float saturation(int rgb) {
@@ -377,7 +440,49 @@ public class SmartCrop {
     // gets value in the range of [0, 1] where 0 is the center of the pictures
     // returns weight of rule of thirds [0, 1]
     private float thirds(float x) {
-        x = ((x - (1 / 3f) + 1.0f) % 2.0f * 0.5f - 0.5f) * 16f;
-        return Math.max(1.0f - x * x, 0);
+        x = (((x - (1f / 3f) + 1.0f) % 2.0f) * 0.5f - 0.5f) * 16f;
+        return Math.max(1.0f - x * x, 0f);
     }
+
+
+    private int setAlpha(int pixel, int alpha) {
+        return (alpha << 24) | (getRed(pixel) << 16) | (getGreen(pixel) << 8) | getBlue(pixel);
+//        return (alpha << 24) | pixel & 0x00ffffff;
+    }
+
+
+    private int setRed(int pixel, int red) {
+        return (getAlpha(pixel) << 24) | (red << 16) | (getGreen(pixel) << 8) | getBlue(pixel);
+    }
+
+    private int setGreen(int pixel, int green) {
+        return (getAlpha(pixel) << 24) | (getRed(pixel) << 16) | (green << 8) | getBlue(pixel);
+    }
+
+    private int setBlue(int pixel, int blue) {
+        return (getAlpha(pixel) << 24) | (getRed(pixel) << 16) | (getGreen(pixel) << 8) | blue;
+    }
+
+
+    //+3
+    private int getAlpha(int pixel) {
+        return (pixel >> 24) & 0xff;
+    }
+
+    //0
+    private int getRed(int pixel) {
+        return (pixel >> 16) & 0xff;
+    }
+
+    // +1
+    private int getGreen(int pixel) {
+        return (pixel >> 8) & 0xff;
+    }
+
+    // +2
+    private int getBlue(int pixel) {
+        return (pixel) & 0xff;
+    }
+
+
 }
