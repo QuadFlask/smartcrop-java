@@ -1,14 +1,5 @@
 package com.github.quadflask.smartcrop;
 
-import org.bytedeco.javacpp.Loader;
-import org.bytedeco.javacpp.indexer.FloatIndexer;
-import org.bytedeco.javacpp.opencv_core.Mat;
-import org.bytedeco.javacpp.opencv_core.Scalar;
-import org.bytedeco.javacpp.opencv_core.Size;
-import org.bytedeco.javacpp.opencv_dnn;
-import org.bytedeco.javacpp.opencv_java;
-import org.bytedeco.javacv.Java2DFrameUtils;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.awt.Color;
@@ -21,11 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import javax.imageio.ImageIO;
 
-import static org.bytedeco.javacpp.opencv_core.CV_32F;
-import static org.bytedeco.javacpp.opencv_dnn.blobFromImage;
-import static org.bytedeco.javacpp.opencv_dnn.readNetFromCaffe;
-import static org.bytedeco.javacpp.opencv_imgproc.resize;
-
 /**
  * Created by flask on 2015. 10. 27..
  */
@@ -35,14 +21,7 @@ public class SmartCropTest {
 	static String debugPath = "src/test/resources/debug";
 	static String resultPath = "src/test/resources/result";
 
-	private static opencv_dnn.Net faceNet;
-
-	@BeforeClass
-	public static void setUp() {
-		Loader.load(opencv_java.class);
-
-		faceNet = readNetFromCaffe("src/test/resources/deploy.prototxt.txt", "src/test/resources/res10_300x300_ssd_iter_140000.caffemodel");
-	}
+	private DnnFaceDetector faceDetector = new DnnFaceDetector();
 
 	@Test
 	public void test() throws Exception {
@@ -51,7 +30,18 @@ public class SmartCropTest {
 					try {
 						System.out.println("Processing " + file.getName());
 						BufferedImage input = ImageIO.read(file);
-						List<Boost> faces = detectFaces(input);
+
+						List<Boost> faces = new ArrayList<>();
+						faceDetector.detect(input, (x, y, width, height, confidence) -> {
+							Boost boost = new Boost();
+							boost.x = x;
+							boost.y = y;
+							boost.width = width;
+							boost.height = height;
+							boost.weight = 1.0f;
+							faces.add(boost);
+
+						});
 						System.out.println("Detected " + faces.size() + " faces");
 						String baseName = baseName(file.getName());
 
@@ -66,7 +56,6 @@ public class SmartCropTest {
 					}
 				});
 	}
-
 
 	private String baseName(String fileName) {
 		int extenstionIndex = fileName.lastIndexOf('.');
@@ -94,47 +83,6 @@ public class SmartCropTest {
 		g.drawImage(input, 0, 0, crop.width, crop.height, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
 		g.dispose();
 		return image;
-	}
-
-	private List<Boost> detectFaces(BufferedImage input) {
-		Mat frame = Java2DFrameUtils.toMat(input);
-
-		resize(frame, frame, new Size(300, 300));
-		Mat blob = blobFromImage(frame, 1.0, new Size(300, 300), new Scalar(104.0, 177.0, 123.0, 0.0), false, false, CV_32F);
-
-		faceNet.setInput(blob);
-		Mat output = faceNet.forward();
-
-		Mat ne = new Mat(new Size(output.size(3), output.size(2)), CV_32F, output.ptr(0, 0));
-		FloatIndexer srcIndexer = ne.createIndexer();
-
-		List<Boost> faces = new ArrayList<>();
-		for (int i = 0; i < output.size(3); i++) {
-			float confidence = srcIndexer.get(i, 2);
-
-			if (confidence > .6f) {
-				float f1 = srcIndexer.get(i, 3);
-				float f2 = srcIndexer.get(i, 4);
-				float f3 = srcIndexer.get(i, 5);
-				float f4 = srcIndexer.get(i, 6);
-
-				Boost face = new Boost();
-				face.x = (int) (f1 * input.getWidth());
-				face.y = (int) (f2 * input.getHeight());
-				face.width = (int) ((f3 - f1) * input.getWidth());
-				face.height = (int) ((f4 - f2) * input.getHeight());
-				face.weight = 1.0f;
-				faces.add(face);
-			}
-		}
-
-		srcIndexer.release();
-		ne.release();
-		output.release();
-		blob.release();
-		frame.release();
-
-		return faces;
 	}
 
 }
