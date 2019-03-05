@@ -46,7 +46,29 @@ public class SmartCrop {
         Crop topCrop = null;
         List<Crop> crops = crops(scoreI);
 
+        Integer minX = null;
+        Integer minY = null;
+        if (options.getBoost() != null && options.getBoost().length > 0) {
+            for (Crop c : options.getBoost()){
+                if (minX == null || c.x < minX.intValue()){
+                    minX = c.x;
+                }
+
+                if (minY == null || c.y < minY.intValue()){
+                    minY = c.y;
+                }
+            }
+            minX = minX/options.getScoreDownSample();
+            minY = minY/options.getScoreDownSample();
+        }
+
+
         for (Crop crop : crops) {
+            if (minX !=null){
+                if ( crop.y > minY.intValue() || crop.x > minX.intValue()){
+                    continue;
+                }
+            }
             crop.score = score(scoreI, crop);
             if (crop.score.total > topScore) {
                 topCrop = crop;
@@ -75,11 +97,11 @@ public class SmartCrop {
                 }
             }
 
-            Graphics graphics1 = output.getGraphics();
-            graphics1.setColor(Color.MAGENTA);
-            for(Crop r: crops){
-                graphics.drawRect(r.x, r.y, r.width, r.height);
-            }
+//            Graphics graphics1 = output.getGraphics();
+//            graphics1.setColor(Color.MAGENTA);
+//            for (Crop r : crops) {
+//                graphics.drawRect(r.x, r.y, r.width, r.height);
+//            }
 
         }
 
@@ -94,12 +116,6 @@ public class SmartCrop {
         image.getGraphics().drawImage(input, 0, 0, tw, th, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
 
         return image;
-    }
-
-    private BufferedImage createScaleDown(BufferedImage image, float ratio) {
-        BufferedImage scaled = new BufferedImage((int) (ratio * image.getWidth()), (int) (ratio * image.getHeight()), options.getBufferedBitmapType());
-        scaled.getGraphics().drawImage(image, 0, 0, scaled.getWidth(), scaled.getHeight(), 0, 0, scaled.getWidth(), scaled.getHeight(), null);
-        return scaled;
     }
 
     private List<Crop> crops(Image image) {
@@ -124,112 +140,45 @@ public class SmartCrop {
             }
         }
 
-            for (float scale = options.getMaxScale();
-                 scale >= options.getMinScale();
-                 scale -= options.getScaleStep()) {
-
-                for (int y = 0; y + cropHeight * scale <= height; y += options.getScoreDownSample()) {
-                    for (int x = 0; x + cropWidth * scale <= width; x += options.getScoreDownSample()) {
-                        crops.add(new Crop(
-                                x,
-                                y,
-                                (int) (cropWidth * scale),
-                                (int) (cropHeight * scale)));
-                    }
-                }
-            }
-
-//        else {
         for (float scale = options.getMaxScale();
              scale >= options.getMinScale();
              scale -= options.getScaleStep()) {
 
-            for (int y = 0; y + minDimension * scale <= height; y += options.getScoreDownSample()) {
-                for (int x = 0; x + minDimension * scale <= width; x += options.getScoreDownSample()) {
+            for (int y = 0; y + cropHeight * scale <= height; y += options.getScoreDownSample()) {
+                for (int x = 0; x + cropWidth * scale <= width; x += options.getScoreDownSample()) {
                     crops.add(new Crop(
                             x,
                             y,
-                            (int) (minDimension * scale),
-                            (int) (minDimension * scale)));
+                            (int) (cropWidth * scale),
+                            (int) (cropHeight * scale)));
                 }
             }
         }
-//        }
-
 
         return crops;
     }
 
     private Score score(Image output, Crop crop) {
 
-        Score result = new Score();
+        Score score = new Score();
         int[] od = output.getRGB();
-        int downSample = options.getScoreDownSample();
-        float invDownSample = 1f / downSample;
-        int outputHeightDownSample = output.height * downSample;
-        int outputWidthDownSample = output.width * downSample;
-        int outputWidth = output.width;
+        int width = output.width;
+        int height = output.height;
 
-//        for (int y = 0; y < output.height - downSample; y += downSample) {
-//            for (int x = 0; x < output.width - downSample; x += downSample) {
-//                int p = y * outputWidth + x;
-//                float i = importance(crop, x, y);
-//                float detail = getGreen(od[p]) / 255f;
-//                result.skin += getRed(od[p]) / 255f * (detail + options.getSkinBias()) * i;
-//                result.detail += detail * i;
-//                result.saturation += getBlue(od[p]) / 255f * (detail + options.getSaturationBias()) * i;
-//                result.boost += getAlpha(od[p]) / 255f * i;
-//            }
-//        }
-//
-        for (int y = 0; y < outputHeightDownSample; y += downSample) {
-            for (int x = 0; x < outputWidthDownSample; x += downSample) {
-                int p = Math.round(y * invDownSample * outputWidth + x * invDownSample);
-                float i = importance(crop, x, y);
-                float detail = getGreen(od[p]) / 255f;
-                result.skin += getRed(od[p]) / 255f * (detail + options.getSkinBias()) * i;
-                result.detail += detail * i;
-                result.saturation += getBlue(od[p]) / 255f * (detail + options.getSaturationBias()) * i;
-                result.boost += getAlpha(od[p]) / 255f * i;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int p = y * width + x;
+                float importance = importance(crop, x, y);
+                float detail = (od[p] >> 8 & 0xff) / 255f;
+                score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
+                score.detail += detail * importance;
+                score.saturation += (od[p] & 0xff) / 255f * (detail + options.getSaturationBias()) * importance;
+                score.boost += getAlpha(od[p]) / 255f * importance;
             }
         }
+        score.total = (score.detail * options.getDetailWeight() + score.skin * options.getSkinWeight() + score.saturation * options.getSaturationWeight() + score.boost * options.getBoostWeight()) / crop.width / crop.height;
+        return score;
 
-
-        /**
-         Score score = new Score();
-         int[] od = output.getRGB();
-         int width = output.width ;
-         //        int width = output.width * options.getScoreDownSample();
-         int height = output.height;
-         //        int height = output.height * options.getScoreDownSample();
-
-         //        float invDownSample = 1f / options.getScoreDownSample();
-         float invDownSample = 1f ;
-         System.out.println(od.length + " "+ (Math.round((height-1f) * invDownSample * output.width + (width-1f) * invDownSample)));
-         for (int y = 0; y < height; y += options.getScoreDownSample()) {
-         for (int x = 0; x < width; x += options.getScoreDownSample()) {
-         //                int p = Math.round(y * invDownSample * output.width + x * invDownSample) * 4;
-         int p = Math.round(y * invDownSample * width + x * invDownSample);
-
-         float importance = importance(crop, x, y);
-         //                if (importance > 0){
-         //                    System.out.println(importance);
-         //                }
-         float detail = (od[p] >> 8 & 0xff) / 255f;
-         score.skin += (od[p] >> 16 & 0xff) / 255f * (detail + options.getSkinBias()) * importance;
-         score.detail += detail * importance;
-         score.saturation += (od[p] & 0xff) / 255f * (detail + options.getSaturationBias()) * importance;
-         score.boost += (od[p] >> 24 & 0xff) / 255f * importance;
-         }
-         }
-         */
-
-        result.total = (result.detail * options.getDetailWeight()
-                + result.skin * options.getSkinWeight()
-                + result.saturation * options.getSaturationWeight()
-                + result.boost * options.getBoostWeight())
-                / (crop.width + crop.height);
-        return result;
     }
 
     private float importance(Crop crop, int x, int y) {
@@ -391,8 +340,6 @@ public class SmartCrop {
             for (int x = x0; x < x1; x++) {
                 int p = (y * w + x);
                 od[p] = setAlpha(od[p], getAlpha(od[p]) + 255);
-                od[p] = setGreen(od[p], 255);
-//                od[p] = cie(od[p]);
             }
         }
     }
@@ -482,6 +429,144 @@ public class SmartCrop {
     // +2
     private int getBlue(int pixel) {
         return (pixel) & 0xff;
+    }
+
+
+    public BufferedImage sobelProcess(BufferedImage src) {
+
+        // Sobel算子
+        int[] sobel_y = new int[]{-1, -2, -1, 0, 0, 0, 1, 2, 1};
+        int[] sobel_x = new int[]{-1, 0, 1, -2, 0, 2, -1, 0, 1};
+
+        int width = src.getWidth();
+        int height = src.getHeight();
+
+        int[] pixels = new int[width * height];
+        int[] outPixels = new int[width * height];
+
+        int type = src.getType();
+        if (type == BufferedImage.TYPE_INT_ARGB
+                || type == BufferedImage.TYPE_INT_RGB) {
+            src.getRaster().getDataElements(0, 0, width, height, pixels);
+        }
+        src.getRGB(0, 0, width, height, pixels, 0, width);
+
+        int offset = 0;
+        int x0 = sobel_x[0];
+        int x1 = sobel_x[1];
+        int x2 = sobel_x[2];
+        int x3 = sobel_x[3];
+        int x4 = sobel_x[4];
+        int x5 = sobel_x[5];
+        int x6 = sobel_x[6];
+        int x7 = sobel_x[7];
+        int x8 = sobel_x[8];
+
+        int k0 = sobel_y[0];
+        int k1 = sobel_y[1];
+        int k2 = sobel_y[2];
+        int k3 = sobel_y[3];
+        int k4 = sobel_y[4];
+        int k5 = sobel_y[5];
+        int k6 = sobel_y[6];
+        int k7 = sobel_y[7];
+        int k8 = sobel_y[8];
+
+        int yr = 0, yg = 0, yb = 0;
+        int xr = 0, xg = 0, xb = 0;
+        int r = 0, g = 0, b = 0;
+
+        for (int row = 1; row < height - 1; row++) {
+            offset = row * width;
+            for (int col = 1; col < width - 1; col++) {
+
+                // red
+                yr = k0 * ((pixels[offset - width + col - 1] >> 16) & 0xff)
+                        + k1 * ((pixels[offset - width + col] >> 16) & 0xff)
+                        + k2
+                        * ((pixels[offset - width + col + 1] >> 16) & 0xff)
+                        + k3 * ((pixels[offset + col - 1] >> 16) & 0xff) + k4
+                        * ((pixels[offset + col] >> 16) & 0xff) + k5
+                        * ((pixels[offset + col + 1] >> 16) & 0xff) + k6
+                        * ((pixels[offset + width + col - 1] >> 16) & 0xff)
+                        + k7 * ((pixels[offset + width + col] >> 16) & 0xff)
+                        + k8
+                        * ((pixels[offset + width + col + 1] >> 16) & 0xff);
+
+                xr = x0 * ((pixels[offset - width + col - 1] >> 16) & 0xff)
+                        + x1 * ((pixels[offset - width + col] >> 16) & 0xff)
+                        + x2
+                        * ((pixels[offset - width + col + 1] >> 16) & 0xff)
+                        + x3 * ((pixels[offset + col - 1] >> 16) & 0xff) + x4
+                        * ((pixels[offset + col] >> 16) & 0xff) + x5
+                        * ((pixels[offset + col + 1] >> 16) & 0xff) + x6
+                        * ((pixels[offset + width + col - 1] >> 16) & 0xff)
+                        + x7 * ((pixels[offset + width + col] >> 16) & 0xff)
+                        + x8
+                        * ((pixels[offset + width + col + 1] >> 16) & 0xff);
+
+                // green
+                yg = k0 * ((pixels[offset - width + col - 1] >> 8) & 0xff) + k1
+                        * ((pixels[offset - width + col] >> 8) & 0xff) + k2
+                        * ((pixels[offset - width + col + 1] >> 8) & 0xff) + k3
+                        * ((pixels[offset + col - 1] >> 8) & 0xff) + k4
+                        * ((pixels[offset + col] >> 8) & 0xff) + k5
+                        * ((pixels[offset + col + 1] >> 8) & 0xff) + k6
+                        * ((pixels[offset + width + col - 1] >> 8) & 0xff) + k7
+                        * ((pixels[offset + width + col] >> 8) & 0xff) + k8
+                        * ((pixels[offset + width + col + 1] >> 8) & 0xff);
+
+                xg = x0 * ((pixels[offset - width + col - 1] >> 8) & 0xff) + x1
+                        * ((pixels[offset - width + col] >> 8) & 0xff) + x2
+                        * ((pixels[offset - width + col + 1] >> 8) & 0xff) + x3
+                        * ((pixels[offset + col - 1] >> 8) & 0xff) + x4
+                        * ((pixels[offset + col] >> 8) & 0xff) + x5
+                        * ((pixels[offset + col + 1] >> 8) & 0xff) + x6
+                        * ((pixels[offset + width + col - 1] >> 8) & 0xff) + x7
+                        * ((pixels[offset + width + col] >> 8) & 0xff) + x8
+                        * ((pixels[offset + width + col + 1] >> 8) & 0xff);
+                // blue
+                yb = k0 * (pixels[offset - width + col - 1] & 0xff) + k1
+                        * (pixels[offset - width + col] & 0xff) + k2
+                        * (pixels[offset - width + col + 1] & 0xff) + k3
+                        * (pixels[offset + col - 1] & 0xff) + k4
+                        * (pixels[offset + col] & 0xff) + k5
+                        * (pixels[offset + col + 1] & 0xff) + k6
+                        * (pixels[offset + width + col - 1] & 0xff) + k7
+                        * (pixels[offset + width + col] & 0xff) + k8
+                        * (pixels[offset + width + col + 1] & 0xff);
+
+                xb = x0 * (pixels[offset - width + col - 1] & 0xff) + x1
+                        * (pixels[offset - width + col] & 0xff) + x2
+                        * (pixels[offset - width + col + 1] & 0xff) + x3
+                        * (pixels[offset + col - 1] & 0xff) + x4
+                        * (pixels[offset + col] & 0xff) + x5
+                        * (pixels[offset + col + 1] & 0xff) + x6
+                        * (pixels[offset + width + col - 1] & 0xff) + x7
+                        * (pixels[offset + width + col] & 0xff) + x8
+                        * (pixels[offset + width + col + 1] & 0xff);
+
+                // 索贝尔梯度
+                r = (int) Math.sqrt(yr * yr + xr * xr);
+                g = (int) Math.sqrt(yg * yg + xg * xg);
+                b = (int) Math.sqrt(yb * yb + xb * xb);
+
+                outPixels[offset + col] = (0xff << 24) | (clamp(r) << 16)
+                        | (clamp(g) << 8) | clamp(b);
+            }
+        }
+
+        BufferedImage dest = new BufferedImage(width, height,
+                BufferedImage.TYPE_INT_ARGB);
+
+        if (type == BufferedImage.TYPE_INT_ARGB
+                || type == BufferedImage.TYPE_INT_RGB) {
+            dest.getRaster().setDataElements(0, 0, width, height, outPixels);
+        } else {
+            dest.setRGB(0, 0, width, height, outPixels, 0, width);
+        }
+        return dest;
+
     }
 
 
