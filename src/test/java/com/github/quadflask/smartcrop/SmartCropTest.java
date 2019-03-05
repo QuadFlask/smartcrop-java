@@ -61,10 +61,10 @@ public class SmartCropTest {
 						total.addAndGet(System.currentTimeMillis() - startTime);
 
 						BufferedImage cropImage = createCropImage(input, cropResult.topCrop);
-						ImageIO.write(cropImage, "png", new File(resultPath, baseName + ".png"));
+						ImageIO.write(cropImage, "jpg", new File(resultPath, baseName + ".jpg"));
 
 						BufferedImage debugImage = smartCrop.createDebugOutput(cropResult.topCrop, faces);
-						ImageIO.write(debugImage, "png", new File(debugPath, baseName + ".png"));
+						ImageIO.write(debugImage, "jpg", new File(debugPath, baseName + ".jpg"));
 					} catch (Exception e) {
 						e.printStackTrace();
 					}

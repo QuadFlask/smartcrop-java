@@ -12,7 +12,7 @@ import java.util.List;
  * Created by flask on 2015. 10. 30..
  */
 public class SmartCrop {
-	private double prescale;
+	private double prescale = 1.0;
 	private BufferedImage input;
 	private BufferedImage scaledInput;
 	private BufferedImage score;
@@ -40,8 +40,6 @@ public class SmartCrop {
 					boost.width = (int) (boost.width * this.prescale);
 					boost.height = (int) (boost.height * this.prescale);
 				}
-			} else {
-				prescale = 1.0;
 			}
 		}
 
