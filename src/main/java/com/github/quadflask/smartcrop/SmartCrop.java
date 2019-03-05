@@ -103,7 +103,7 @@ public class SmartCrop {
 			}
 		}
 
-		return CropResult.newInstance(topCrop, crops, scoreOutput);
+		return CropResult.newInstance(topCrop, crops);
 	}
 
 	private BufferedImage downSample(Options options, BufferedImage input) {
