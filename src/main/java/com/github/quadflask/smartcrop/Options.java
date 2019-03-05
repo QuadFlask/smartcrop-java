@@ -7,11 +7,11 @@ import java.util.List;
  * Created by flask on 2015. 10. 30..
  */
 public class Options {
-	private float width = 191.0f;
-	private float height = 100.0f;
+	private float width = 0.0f;
+	private float height = 0.0f;
 	private float aspect = 0.0f;
-	private int cropWidth = 100;
-	private int cropHeight = 100;
+	private int cropWidth = 0;
+	private int cropHeight = 0;
 	private float detailWeight = 0.2f;
 	private float[] skinColor = {0.78f, 0.57f, 0.44f};
 	private float skinBias = 0.01f;
@@ -37,6 +37,7 @@ public class Options {
 	private float boostWeight = 100.0f;
 	private boolean ruleOfThirds = true;
 	private boolean prescale = false;
+	private float prescaleWeight = 1.0f;
 
 	public float getWidth() {
 		return width;
@@ -297,5 +298,14 @@ public class Options {
 	public Options prescale(boolean prescale) {
 		this.prescale = prescale;
 		return this;
+	}
+
+	public Options prescaleWeight(float prescaleWeight) {
+		this.prescaleWeight = prescaleWeight;
+		return this;
+	}
+
+	public float getPrescaleWeight() {
+		return prescaleWeight;
 	}
 }

@@ -1,9 +1,7 @@
 package com.github.quadflask.smartcrop;
 
-import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.image.BandCombineOp;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +10,6 @@ import java.util.List;
  * Created by flask on 2015. 10. 30..
  */
 public class SmartCrop {
-	private float prescale = 1.0f;
 	private BufferedImage input;
 	private BufferedImage scaledInput;
 	private BufferedImage score;
@@ -30,19 +27,20 @@ public class SmartCrop {
 		scaledInput = original;
 
 		if (options.isPrescale()) {
-			prescale = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
-			if (prescale < 1.0f) {
-				scaledInput = createScaleDown(original, prescale);
+			float prescaleWeight = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
+			if (prescaleWeight < 1.0f) {
+				scaledInput = createScaleDown(original, prescaleWeight);
 
-				options.getBoost().forEach(boost -> {
-					boost.x = (int) (boost.x * prescale);
-					boost.y = (int) (boost.y * prescale);
-					boost.width = (int) (boost.width * prescale);
-					boost.height = (int) (boost.height * prescale);
-				});
+				for (Boost boost : options.getBoost()) {
+					boost.x = (int) (boost.x * prescaleWeight);
+					boost.y = (int) (boost.y * prescaleWeight);
+					boost.width = (int) (boost.width * prescaleWeight);
+					boost.height = (int) (boost.height * prescaleWeight);
+				}
 			} else {
-				prescale = 1.0f;
+				prescaleWeight = 1.0f;
 			}
+			options.prescaleWeight(prescaleWeight);
 		}
 
 		// analyse(options, input)
@@ -81,8 +79,8 @@ public class SmartCrop {
 		}
 
 		if (options.isPrescale()) {
-			options.cropWidth((int) (options.getCropWidth() * prescale));
-			options.cropHeight((int) (options.getCropHeight() * prescale));
+			options.cropWidth((int) (options.getCropWidth() * options.getPrescaleWeight()));
+			options.cropHeight((int) (options.getCropHeight() * options.getPrescaleWeight()));
 		}
 
 		Image scoreI = new Image(score);
@@ -97,35 +95,16 @@ public class SmartCrop {
 				topCrop = crop;
 				topScore = crop.score.total;
 			}
-			crop.x = (int) Math.floor(crop.x / prescale);
-			crop.y = (int) Math.floor(crop.y / prescale);
-			crop.width = (int) Math.floor((crop.width / prescale));
-			crop.height = (int) Math.floor(crop.height / prescale);
+			crop.x = (int) Math.floor(crop.x / options.getPrescaleWeight());
+			crop.y = (int) Math.floor(crop.y / options.getPrescaleWeight());
+			crop.width = (int) Math.floor((crop.width / options.getPrescaleWeight()));
+			crop.height = (int) Math.floor(crop.height / options.getPrescaleWeight());
 		}
 
-		BufferedImage debugOutput = new BufferedImage(scoreOutput.getWidth(), scoreOutput.getHeight(), BufferedImage.TYPE_INT_RGB);
-		// Drop alpha channel from debug output
-		BandCombineOp filterAlpha = new BandCombineOp(
-				// RGBA -> RGB
-				new float[][] {
-						{1.0f, 0.0f, 0.0f, 0.0f},
-						{0.0f, 1.0f, 0.0f, 0.0f},
-						{0.0f, 0.0f, 1.0f, 0.0f}
-				}, null
-		);
-		filterAlpha.filter(scoreOutput.getRaster(), debugOutput.getRaster());
-
-		if (topCrop != null) {
-			Graphics2D g = (Graphics2D) debugOutput.getGraphics();
-			g.setColor(Color.cyan);
-			g.drawRect((int) (topCrop.x * prescale), (int) (topCrop.y * prescale), (int) (topCrop.width * prescale), (int) (topCrop.height * prescale));
-			g.dispose();
-		}
-
-		return CropResult.newInstance(topCrop, crops, debugOutput);
+		return CropResult.newInstance(topCrop, crops, scoreOutput);
 	}
 
-	public BufferedImage downSample(Options options, BufferedImage input) {
+	private BufferedImage downSample(Options options, BufferedImage input) {
 		int factor = options.getScoreDownSample();
 		int[] idata = input.getRGB(0, 0, input.getWidth(), input.getHeight(), null, 0, input.getWidth());
 		int iwidth = input.getWidth();
@@ -134,7 +113,7 @@ public class SmartCrop {
 
 		BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
 		int[] data = output.getRGB(0, 0, width, height, null, 0, width);
-		double ifactor2 = 1.0 / (factor * factor);
+		float ifactor2 = 1.0f / (factor * factor);
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				int i = (y * width + x);

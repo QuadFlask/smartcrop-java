@@ -5,11 +5,13 @@ import org.junit.Test;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.image.BandCombineOp;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.imageio.ImageIO;
 
 /**
@@ -25,11 +27,15 @@ public class SmartCropTest {
 
 	@Test
 	public void test() throws Exception {
+		AtomicLong pixels = new AtomicLong();
+		AtomicLong total = new AtomicLong();
+
 		Arrays.stream(new File(samplePath).listFiles(pathname -> pathname.getName().endsWith(".jpg"))).
 				forEach(file -> {
 					try {
 						System.out.println("Processing " + file.getName());
 						BufferedImage input = ImageIO.read(file);
+						pixels.addAndGet(input.getWidth() * input.getHeight());
 
 						List<Boost> faces = new ArrayList<>();
 						faceDetector.detect(input, (x, y, width, height, confidence) -> {
@@ -40,21 +46,32 @@ public class SmartCropTest {
 							boost.height = height;
 							boost.weight = 1.0f;
 							faces.add(boost);
-
 						});
 						System.out.println("Detected " + faces.size() + " faces");
 						String baseName = baseName(file.getName());
 
-						Options options = new Options().prescale(true).scoreDownSample(1);
-						SmartCrop smartCrop = SmartCrop.analyze(options.boost(faces), input);
+						long startTime = System.currentTimeMillis();
+						Options options = new Options().
+								prescale(true).
+								scoreDownSample(8).
+								boost(faces).
+								aspect(1.0f).
+								ruleOfThirds(true).
+								minScale(1.0f);
+						CropResult cropResult = SmartCrop.analyze(options, input).generateCrops(options);
+						total.addAndGet(System.currentTimeMillis() - startTime);
 
-						createCrop(input, smartCrop, options.aspect(1.0f), baseName + "_11", faces);
-						createCrop(input, smartCrop, options.aspect(1.33f), baseName + "_1133", faces);
-						createCrop(input, smartCrop, options.aspect(1.91f), baseName + "_1191", faces);
+						BufferedImage cropImage = createCropImage(input, cropResult.topCrop);
+						ImageIO.write(cropImage, "png", new File(resultPath, baseName + ".png"));
+
+						BufferedImage debugImage = createDebugImage(cropResult.debugImage, cropResult.topCrop, options);
+						ImageIO.write(debugImage, "png", new File(debugPath, baseName + ".png"));
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
 				});
+
+		System.out.println((pixels.get() / (total.get() * 1000f)) + " MPixels/s");
 	}
 
 	private String baseName(String fileName) {
@@ -62,27 +79,45 @@ public class SmartCropTest {
 		return fileName.substring(0, extenstionIndex);
 	}
 
-	private void createCrop(BufferedImage input, SmartCrop smartCrop, Options options, String filename, List<Boost> boost) throws Exception {
-		CropResult cropResult = smartCrop.generateCrops(options);
-		BufferedImage cropImage = createCrop(input, cropResult.topCrop);
-		ImageIO.write(cropImage, "png", new File(resultPath, filename + ".png"));
-
-		Graphics2D g = (Graphics2D) cropResult.debugImage.getGraphics();
-		g.setColor(Color.WHITE);
-		boost.forEach(b -> {
-			g.drawRect(b.x, b.y, b.width, b.height);
-		});
-		g.dispose();
-		ImageIO.write(cropResult.debugImage, "png", new File(debugPath, filename + ".png"));
-	}
-
-	private BufferedImage createCrop(BufferedImage input, Crop crop) {
+	private BufferedImage createCropImage(BufferedImage input, Crop crop) {
 		BufferedImage image = new BufferedImage(crop.width, crop.height, BufferedImage.TYPE_INT_RGB);
 		Graphics2D g = (Graphics2D) image.getGraphics();
 		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 		g.drawImage(input, 0, 0, crop.width, crop.height, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
 		g.dispose();
 		return image;
+	}
+
+	private BufferedImage createDebugImage(BufferedImage debugOutput, Crop topCrop, Options options) {
+		BufferedImage output = new BufferedImage(debugOutput.getWidth(), debugOutput.getHeight(), BufferedImage.TYPE_INT_RGB);
+
+		// Drop alpha channel from debug output
+		BandCombineOp filterAlpha = new BandCombineOp(
+				// RGBA -> RGB
+				new float[][] {
+						{1.0f, 0.0f, 0.0f, 0.0f},
+						{0.0f, 1.0f, 0.0f, 0.0f},
+						{0.0f, 0.0f, 1.0f, 0.0f}
+				}, null
+		);
+		filterAlpha.filter(debugOutput.getRaster(), output.getRaster());
+
+		Graphics2D g = (Graphics2D) output.getGraphics();
+
+		// Draw crop area
+		if (topCrop != null) {
+			float prescaleWeight = options.getPrescaleWeight();
+			g.setColor(Color.cyan);
+			g.drawRect((int) (topCrop.x * prescaleWeight), (int) (topCrop.y * prescaleWeight), (int) (topCrop.width * prescaleWeight), (int) (topCrop.height * prescaleWeight));
+		}
+
+		// Draw boost areas
+		g.setColor(Color.WHITE);
+		options.getBoost().forEach(b -> g.drawRect(b.x, b.y, b.width, b.height));
+
+		g.dispose();
+
+		return output;
 	}
 
 }
