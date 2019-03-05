@@ -3,6 +3,7 @@ package com.github.quadflask.smartcrop;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.opencv.core.Rect;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -28,7 +29,7 @@ public class SmartCropTest {
 	@BeforeClass
 	public static void setup() throws Exception {
 		Arrays.stream(new File(samplePath)
-				.listFiles(pathname -> pathname.getName().endsWith(".jpg")))
+				.listFiles(pathname -> pathname.getName().endsWith("g")))
 				.forEach(file -> {
 					try {
 						bufferedImages.put(file.getName(), ImageIO.read(file));
@@ -36,6 +37,9 @@ public class SmartCropTest {
 						e.printStackTrace();
 					}
 				});
+
+
+		OpencvDetect.getInstance().SetFrontalFacePath("/usr/local/Cellar/opencv/4.0.1/share/opencv4/haarcascades/haarcascade_frontalface_alt.xml");
 	}
 
 	@AfterClass
@@ -47,7 +51,7 @@ public class SmartCropTest {
 					String newName = name; // name.replace("jpg", "png");
 					ImageIO.write(cropResult.debugImage, "jpg", new File(debugPath, newName));
 					ImageIO.write(cropResult.resultImage, "jpg", new File(resultPath, newName));
-					System.out.println("saved... " + newName + " / took " + (System.currentTimeMillis() - b) + "ms");
+					System.out.println( "score:"+cropResult.topCrop.score.total+ " saved... " + newName + " / took " + (System.currentTimeMillis() - b) + "ms");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -65,9 +69,13 @@ public class SmartCropTest {
 		bufferedImages.forEach((name, img) -> {
 			long b = System.currentTimeMillis();
 
+			options.setCropWidth(200);
+			options.setCropHeight(250);
+			options.setDebug(true);
+			options.setBoost(OpencvDetect.getInstance().detectFace(img));
 			CropResult result = SmartCrop.analyze(options, img);
 
-			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
+//			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
 			pixels.addAndGet(img.getWidth() * img.getHeight());
 			cropResults.put(name, result);
 		});
