@@ -37,7 +37,6 @@ public class Options {
 	private float boostWeight = 100.0f;
 	private boolean ruleOfThirds = true;
 	private boolean prescale = false;
-	private float prescaleWeight = 1.0f;
 
 	public float getWidth() {
 		return width;
@@ -298,14 +297,5 @@ public class Options {
 	public Options prescale(boolean prescale) {
 		this.prescale = prescale;
 		return this;
-	}
-
-	public Options prescaleWeight(float prescaleWeight) {
-		this.prescaleWeight = prescaleWeight;
-		return this;
-	}
-
-	public float getPrescaleWeight() {
-		return prescaleWeight;
 	}
 }

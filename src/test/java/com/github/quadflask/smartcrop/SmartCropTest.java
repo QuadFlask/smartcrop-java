@@ -2,10 +2,8 @@ package com.github.quadflask.smartcrop;
 
 import org.junit.Test;
 
-import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.image.BandCombineOp;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
@@ -58,13 +56,14 @@ public class SmartCropTest {
 								aspect(1.0f).
 								ruleOfThirds(true).
 								minScale(1.0f);
-						CropResult cropResult = SmartCrop.analyze(options, input).generateCrops(options);
+						SmartCrop smartCrop = SmartCrop.analyze(options, input);
+						CropResult cropResult = smartCrop.generateCrops(options);
 						total.addAndGet(System.currentTimeMillis() - startTime);
 
 						BufferedImage cropImage = createCropImage(input, cropResult.topCrop);
 						ImageIO.write(cropImage, "png", new File(resultPath, baseName + ".png"));
 
-						BufferedImage debugImage = createDebugImage(cropResult.debugImage, cropResult.topCrop, options);
+						BufferedImage debugImage = smartCrop.createDebugOutput(cropResult.topCrop, faces);
 						ImageIO.write(debugImage, "png", new File(debugPath, baseName + ".png"));
 					} catch (Exception e) {
 						e.printStackTrace();
@@ -86,38 +85,6 @@ public class SmartCropTest {
 		g.drawImage(input, 0, 0, crop.width, crop.height, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
 		g.dispose();
 		return image;
-	}
-
-	private BufferedImage createDebugImage(BufferedImage debugOutput, Crop topCrop, Options options) {
-		BufferedImage output = new BufferedImage(debugOutput.getWidth(), debugOutput.getHeight(), BufferedImage.TYPE_INT_RGB);
-
-		// Drop alpha channel from debug output
-		BandCombineOp filterAlpha = new BandCombineOp(
-				// RGBA -> RGB
-				new float[][] {
-						{1.0f, 0.0f, 0.0f, 0.0f},
-						{0.0f, 1.0f, 0.0f, 0.0f},
-						{0.0f, 0.0f, 1.0f, 0.0f}
-				}, null
-		);
-		filterAlpha.filter(debugOutput.getRaster(), output.getRaster());
-
-		Graphics2D g = (Graphics2D) output.getGraphics();
-
-		// Draw crop area
-		if (topCrop != null) {
-			float prescaleWeight = options.getPrescaleWeight();
-			g.setColor(Color.cyan);
-			g.drawRect((int) (topCrop.x * prescaleWeight), (int) (topCrop.y * prescaleWeight), (int) (topCrop.width * prescaleWeight), (int) (topCrop.height * prescaleWeight));
-		}
-
-		// Draw boost areas
-		g.setColor(Color.WHITE);
-		options.getBoost().forEach(b -> g.drawRect(b.x, b.y, b.width, b.height));
-
-		g.dispose();
-
-		return output;
 	}
 
 }

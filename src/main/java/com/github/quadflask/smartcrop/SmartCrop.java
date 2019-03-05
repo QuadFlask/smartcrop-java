@@ -1,7 +1,9 @@
 package com.github.quadflask.smartcrop;
 
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.image.BandCombineOp;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +12,7 @@ import java.util.List;
  * Created by flask on 2015. 10. 30..
  */
 public class SmartCrop {
+	private double prescale;
 	private BufferedImage input;
 	private BufferedImage scaledInput;
 	private BufferedImage score;
@@ -27,20 +30,19 @@ public class SmartCrop {
 		scaledInput = original;
 
 		if (options.isPrescale()) {
-			float prescaleWeight = Math.min(Math.max(256.0f / input.getWidth(), 256.0f / input.getHeight()), 1.0f);
-			if (prescaleWeight < 1.0f) {
-				scaledInput = createScaleDown(original, prescaleWeight);
+			prescale = Math.min(Math.max(256.0 / input.getWidth(), 256.0 / input.getHeight()), 1.0);
+			if (prescale < 1.0) {
+				scaledInput = createScaleDown(original, prescale);
 
 				for (Boost boost : options.getBoost()) {
-					boost.x = (int) (boost.x * prescaleWeight);
-					boost.y = (int) (boost.y * prescaleWeight);
-					boost.width = (int) (boost.width * prescaleWeight);
-					boost.height = (int) (boost.height * prescaleWeight);
+					boost.x = (int) (boost.x * this.prescale);
+					boost.y = (int) (boost.y * this.prescale);
+					boost.width = (int) (boost.width * this.prescale);
+					boost.height = (int) (boost.height * this.prescale);
 				}
 			} else {
-				prescaleWeight = 1.0f;
+				prescale = 1.0;
 			}
-			options.prescaleWeight(prescaleWeight);
 		}
 
 		// analyse(options, input)
@@ -61,7 +63,7 @@ public class SmartCrop {
 	}
 
 	public CropResult generateCrops(Options options) {
-		if (options.getAspect() != 0.0) {
+		if (options.getAspect() != 0.0f) {
 			options.width(options.getAspect());
 			options.height(1.0f);
 		}
@@ -69,8 +71,8 @@ public class SmartCrop {
 		// calculate desired crop dimensions based on the image size
 		if (options.getWidth() != 0.0f && options.getHeight() != 0.0f) {
 			float scale = Math.min(input.getWidth() / options.getWidth(), input.getHeight() / options.getHeight());
-			options.cropWidth((int) Math.floor(options.getWidth() * scale));
-			options.cropHeight((int) Math.floor(options.getHeight() * scale));
+			options.cropWidth((int) (options.getWidth() * scale));
+			options.cropHeight((int) (options.getHeight() * scale));
 
 			// Img = 100x100, width = 95x95, scale = 100/95, 1/scale > min
 			// don't set minscale smaller than 1/scale
@@ -79,8 +81,8 @@ public class SmartCrop {
 		}
 
 		if (options.isPrescale()) {
-			options.cropWidth((int) (options.getCropWidth() * options.getPrescaleWeight()));
-			options.cropHeight((int) (options.getCropHeight() * options.getPrescaleWeight()));
+			options.cropWidth((int) (options.getCropWidth() * prescale));
+			options.cropHeight((int) (options.getCropHeight() * prescale));
 		}
 
 		Image scoreI = new Image(score);
@@ -95,10 +97,12 @@ public class SmartCrop {
 				topCrop = crop;
 				topScore = crop.score.total;
 			}
-			crop.x = (int) Math.floor(crop.x / options.getPrescaleWeight());
-			crop.y = (int) Math.floor(crop.y / options.getPrescaleWeight());
-			crop.width = (int) Math.floor((crop.width / options.getPrescaleWeight()));
-			crop.height = (int) Math.floor(crop.height / options.getPrescaleWeight());
+			if (options.isPrescale()) {
+				crop.x = (int) (crop.x / prescale);
+				crop.y = (int) (crop.y / prescale);
+				crop.width = (int) (crop.width / prescale);
+				crop.height = (int) (crop.height / prescale);
+			}
 		}
 
 		return CropResult.newInstance(topCrop, crops, scoreOutput);
@@ -149,7 +153,7 @@ public class SmartCrop {
 		return output;
 	}
 
-	private BufferedImage createScaleDown(BufferedImage image, float ratio) {
+	private BufferedImage createScaleDown(BufferedImage image, double ratio) {
 		BufferedImage scaled = new BufferedImage((int) (image.getWidth() * ratio), (int) (image.getHeight() * ratio), BufferedImage.TYPE_INT_ARGB);
 
 		Graphics2D g = (Graphics2D) scaled.getGraphics();
@@ -400,5 +404,36 @@ public class SmartCrop {
 	private float thirds(float x) {
 		x = ((x - (1 / 3f) + 1.0f) % 2.0f * 0.5f - 0.5f) * 16f;
 		return Math.max(1.0f - x * x, 0);
+	}
+
+	public BufferedImage createDebugOutput(Crop topCrop, List<Boost> boosts) {
+		BufferedImage output = new BufferedImage(scoreOutput.getWidth(), scoreOutput.getHeight(), BufferedImage.TYPE_INT_RGB);
+
+		// Drop alpha channel from debug output
+		BandCombineOp filterAlpha = new BandCombineOp(
+				// RGBA -> RGB
+				new float[][] {
+						{1.0f, 0.0f, 0.0f, 0.0f},
+						{0.0f, 1.0f, 0.0f, 0.0f},
+						{0.0f, 0.0f, 1.0f, 0.0f}
+				}, null
+		);
+		filterAlpha.filter(scoreOutput.getRaster(), output.getRaster());
+
+		Graphics2D g = (Graphics2D) output.getGraphics();
+
+		// Draw crop area
+		if (topCrop != null) {
+			g.setColor(Color.cyan);
+			g.drawRect((int) (topCrop.x * prescale), (int) (topCrop.y * prescale), (int) (topCrop.width * prescale), (int) (topCrop.height * prescale));
+		}
+
+		// Draw boost areas
+		g.setColor(Color.WHITE);
+		boosts.forEach(b -> g.drawRect(b.x, b.y, b.width, b.height));
+
+		g.dispose();
+
+		return output;
 	}
 }
