@@ -319,7 +319,7 @@ public class SmartCrop {
     private void applyBoosts(Image o) {
         if (options.getBoost() == null || options.getBoost().length < 1) return;
         int[] od = o.data;
-        for (int i = 0; i < o.width; i++) {
+        for (int i = 0; i < o.width* o.height; i++) {
             od[i] = setAlpha(od[i], 0);
         }
 
