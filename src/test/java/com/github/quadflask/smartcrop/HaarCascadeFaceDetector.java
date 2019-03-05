@@ -21,7 +21,7 @@ public class HaarCascadeFaceDetector implements FaceDetector {
         Loader.load(opencv_java.class);
 
         CascadeClassifier classifier = new CascadeClassifier();
-        classifier.load("src/test/resources/haarcascade_frontalface_alt2.xml");
+        classifier.load("src/test/resources/haarcascade_frontalface_default.xml");
         faceCascade = classifier;
     }
 
