@@ -1,17 +1,16 @@
 package com.github.quadflask.smartcrop;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
-import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.imageio.ImageIO;
 
 /**
  * Created by flask on 2015. 10. 27..
@@ -22,56 +21,70 @@ public class SmartCropTest {
 	static String debugPath = "src/test/resources/debug";
 	static String resultPath = "src/test/resources/result";
 
-	static Map<String, BufferedImage> bufferedImages = new ConcurrentHashMap<>();
-	static Map<String, CropResult> cropResults = new ConcurrentHashMap<>();
-
-	@BeforeClass
-	public static void setup() throws Exception {
-		Arrays.stream(new File(samplePath)
-				.listFiles(pathname -> pathname.getName().endsWith(".jpg")))
-				.forEach(file -> {
-					try {
-						bufferedImages.put(file.getName(), ImageIO.read(file));
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				});
-	}
-
-	@AfterClass
-	public static void teardown() {
-		cropResults.forEach((name, cropResult) -> {
-			new Thread(() -> {
-				try {
-					long b = System.currentTimeMillis();
-					String newName = name; // name.replace("jpg", "png");
-					ImageIO.write(cropResult.debugImage, "jpg", new File(debugPath, newName));
-					ImageIO.write(cropResult.resultImage, "jpg", new File(resultPath, newName));
-					System.out.println("saved... " + newName + " / took " + (System.currentTimeMillis() - b) + "ms");
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}).run();
-		});
-	}
+	private FaceDetector faceDetector = new DnnFaceDetector();
 
 	@Test
 	public void test() throws Exception {
-		Options options = new Options().bufferedBitmapType(BufferedImage.TYPE_INT_RGB);
-		final AtomicLong pixels = new AtomicLong();
+		AtomicLong pixels = new AtomicLong();
+		AtomicLong total = new AtomicLong();
 
-		long total = System.currentTimeMillis();
+		Arrays.stream(new File(samplePath).listFiles(pathname -> pathname.getName().endsWith(".jpg"))).
+				forEach(file -> {
+					try {
+						System.out.println("Processing " + file.getName());
+						BufferedImage input = ImageIO.read(file);
+						pixels.addAndGet(input.getWidth() * input.getHeight());
 
-		bufferedImages.forEach((name, img) -> {
-			long b = System.currentTimeMillis();
+						List<Boost> faces = new ArrayList<>();
+						faceDetector.detect(input, (x, y, width, height, confidence) -> {
+							Boost boost = new Boost();
+							boost.x = x;
+							boost.y = y;
+							boost.width = width;
+							boost.height = height;
+							boost.weight = 1.0f;
+							faces.add(boost);
+						});
+						System.out.println("Detected " + faces.size() + " faces");
+						String baseName = baseName(file.getName());
 
-			CropResult result = SmartCrop.analyze(options, img);
+						long startTime = System.currentTimeMillis();
+						Options options = new Options().
+								prescale(true).
+								scoreDownSample(8).
+								boost(faces).
+								aspect(1.0f).
+								ruleOfThirds(true).
+								minScale(1.0f);
+						SmartCrop smartCrop = SmartCrop.analyze(options, input);
+						CropResult cropResult = smartCrop.generateCrops(options);
+						total.addAndGet(System.currentTimeMillis() - startTime);
 
-			System.out.println("done: " + name + " / analyze took " + (System.currentTimeMillis() - b) + "ms");
-			pixels.addAndGet(img.getWidth() * img.getHeight());
-			cropResults.put(name, result);
-		});
+						BufferedImage cropImage = createCropImage(input, cropResult.topCrop);
+						ImageIO.write(cropImage, "jpg", new File(resultPath, baseName + ".jpg"));
 
-		System.out.println(((pixels.get() / ((System.currentTimeMillis() - total) / 1000)) / 1000 / 1000f) + " MPixels/s");
+						BufferedImage debugImage = smartCrop.createDebugOutput(cropResult.topCrop, faces);
+						ImageIO.write(debugImage, "jpg", new File(debugPath, baseName + ".jpg"));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				});
+
+		System.out.println((pixels.get() / (total.get() * 1000f)) + " MPixels/s");
 	}
+
+	private String baseName(String fileName) {
+		int extenstionIndex = fileName.lastIndexOf('.');
+		return fileName.substring(0, extenstionIndex);
+	}
+
+	private BufferedImage createCropImage(BufferedImage input, Crop crop) {
+		BufferedImage image = new BufferedImage(crop.width, crop.height, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = (Graphics2D) image.getGraphics();
+		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		g.drawImage(input, 0, 0, crop.width, crop.height, crop.x, crop.y, crop.x + crop.width, crop.y + crop.height, null);
+		g.dispose();
+		return image;
+	}
+
 }
